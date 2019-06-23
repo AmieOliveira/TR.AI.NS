@@ -59,7 +59,6 @@ class Message:
         elif self.nType == MsgTypes.req_ans:           # Train has accepted client request
             self.msgDict["receiver"] = kwargs["receiver"]
         elif self.nType == MsgTypes.elec:              # Leader election message
-            # TODO: Discuss leader election algorithm
             self.msgDict["distance"] = kwargs["distance"]
             self.msgDict["clientID"] = kwargs["client"]
             # self.msgDict["starter"] = kwargs["starter"]

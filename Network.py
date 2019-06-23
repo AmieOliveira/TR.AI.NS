@@ -34,8 +34,6 @@ class Network:
 
         d = 0
 
-        # TODO: Create Simulator class. Possibly change this part of the code, if the implementation turns out to be different
-
         if isinstance(sender, Train):
             d = self.sim.trainRange
             if self.log:

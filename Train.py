@@ -60,7 +60,6 @@ class Train:
 
         self.vMax = 6                   # Maximum train speed in m/s
         #self.aMax = 1                   # Maximum train acceleration in m/s^2
-        # TODO: Check this variables
 
         # Messaging attributes
         self.messageBuffer = []
@@ -109,7 +108,7 @@ class Train:
 
         if currentMessage:
             if self.log:
-                print("Received message: {}".format(currentMessage.nType.name))
+                print(" Train {}: Received message '{}'".format(self.id, currentMessage.nType.name))
                 # print "\t %s" % str(currentMessage.msgDict)
 
             # Case 1: Service request from client
@@ -117,10 +116,11 @@ class Train:
 
                 if self.trainMode != TrainModes.outOfOrder: # Checks if train can accept
                     if not ('ID' in self.unprocessedReqs.keys()): # Checks if there are current processes ongoing
-                        if self.log:
-                            print("Processing Client Request")
-
                         clientID = currentMessage['sender']
+
+                        if self.log:
+                            print(" Train {}: Processing Client {} Request".format(self.id, clientID))
+
                         route, d = None, None
                         # Calculate route
                         if self.trainMode == TrainModes.wait:
@@ -132,7 +132,6 @@ class Train:
                                                     inElections=False, simpleD=d, route=route, msgWait=0)
 
                         self.acknowlege_request()
-                        # TODO: Train answers Request!
                         # Create a message type to indicate to client that the request has been heard and is being processed
 
             # Case 2: Election started
@@ -145,7 +144,7 @@ class Train:
                         if self.unprocessedReqs['ID'] == currentMessage['clientID']:
                             # NOTE: I assume any car receives first the notice from the client
                             if self.log:
-                                print("Received Election Message")
+                                print(" Train {}: Received Election Message (from {})".format(self.id, currentMessage['sender']))
 
                             dTot = self.unprocessedReqs['simpleD'] + self.full_distance()
 
@@ -159,7 +158,7 @@ class Train:
                                     self.unprocessedReqs['msgWait'] = 0
 
                                 if self.log:
-                                    print("\t Win this elections round")
+                                    print( " Train {}: Win this elections round".format(self.id) )
 
                             # TODO: Solve the case where they both have the same distance
                             # Desmpate pelo id???
@@ -169,7 +168,7 @@ class Train:
                                 self.unprocessedReqs = {}
 
                                 if self.log:
-                                    print("\t Lost these elections")
+                                    print( " Train {}: Lost these elections".format(self.id) )
 
             # Case 3: Election answer
             elif currentMessage['type'] == MsgTypes.elec_ack.value:
@@ -181,7 +180,7 @@ class Train:
                         self.unprocessedReqs = {}
 
                         if self.log:
-                            print("Silenced in these elections. Lost election.")
+                            print( " Train {}: Silenced in these elections. Lost election.".format(self.id) )
 
             # Case 4: Leader Message
             elif currentMessage['type'] == MsgTypes.leader:
@@ -191,7 +190,7 @@ class Train:
                         self.unprocessedReqs = {}
 
                         if self.log:
-                            print("Got an election leader in these elections. Lost election.")
+                            print( " Train {}: Got an election leader in these elections. Lost election.".format(self.id) )
 
             # Any other type of message is certainly not destined to myself, therefore no action is taken
             else:
@@ -204,7 +203,7 @@ class Train:
                 if self.unprocessedReqs['delayT'] == self.delayWanted:
                     # Will start election
                     if self.log:
-                        print("Starting Election!")
+                        print( " Train {}: Starting Election!".format(self.id) )
 
                     self.unprocessedReqs['inElections'] = True
                     d = self.unprocessedReqs['simpleD'] + self.full_distance() # Needs to add the distance until the
@@ -220,10 +219,9 @@ class Train:
                     # self.broadcast_leader(self.id) # Inform others who's answering the request
 
                     if self.log:
-                        print("Finishing election! I've won! (ID {})".format(self.id))
+                        print( " Train {}: Finishing election! I've won!".format(self.id) )
 
                     self.path += self.unprocessedReqs['route'] # Adds route to desired path
-                    # TODO: Think on pickup and dropoff. Might be strings instead of actual coordinates...
                     # In this case I'd need to convert into coordinates
                     self.client += [(self.unprocessedReqs['ID'], self.unprocessedReqs['pickup'], self.unprocessedReqs['dropoff'])]
                     self.client_accept()
@@ -242,9 +240,11 @@ class Train:
                 # Client boarding train
                 self.trainMode = TrainModes.busy
                 self.currentGoal = self.client[0][2] # dropoff
+                # TODO: Notify client
 
             elif self.trainMode == TrainModes.busy:
                 # Client leaving the train
+                # TODO: Notify client
                 self.client.pop() # taking out client from list
                 if len(self.client) > 0:
                     self.trainMode = TrainModes.accept
@@ -278,19 +278,6 @@ class Train:
                 self.messageBuffer += [msg]
     # -----------------------------------------------------------------------------------------
 
-    def send_message(self, msgType, **kwargs):
-        """
-            Send messaages to others trains
-        :param msgType:
-        :param kwargs:
-        :return:
-        """
-        # TODO: Check if this method is needed
-        temp_dict = kwargs
-        msg_sent = Message(msgType = msgType, sender = self.id, kwargs=temp_dict)
-        self.network.broadcast(msg_sent.encode(), self)
-    # -----------------------------------------------------------------------------------------
-
     def load_map(self, mapPath):
         """
             Loads map information into the train object. Sets up necessary attributes
@@ -299,7 +286,7 @@ class Train:
         """
 
         if self.log:
-            print("Reading map file ({})".format(mapPath))
+            print(" Train {}: Reading map file ({})".format(self.id, mapPath))
 
         # Getting CSV file names
         graphInfo = "%s/Sheet 1-Graph Info.csv" % mapPath
@@ -308,7 +295,7 @@ class Train:
 
         # Reading Graph Info table
         if self.log:
-            print("\tGoing over graph info")
+            print( " Train {}: Going over graph info".format(self.id) )
 
         with open(graphInfo) as csv_file:
             csv_reader = csv.reader(csv_file, delimiter=';')
@@ -325,11 +312,11 @@ class Train:
                 line_count += 1
 
             if self.log:
-                print("\t - Map contains {} vertices and {} edges".format(self.nVertices, self.nEdges))
+                print( " Train {}:  - Map contains {} vertices and {} edges".format(self.id, self.nVertices, self.nEdges) )
 
         # Reading Vertices Positions table
         if self.log:
-            print("\tGoing over vertices positions")
+            print( " Train {}: Going over vertices positions".format(self.id) )
 
         self.vert_names = []
         self.vert_pos = []
@@ -352,11 +339,11 @@ class Train:
                 raise Exception("Wrong input file format. The number of vertices given doesn't match the number of vertices specified")
 
             if self.log:
-                print("\t - Got positions of the {} vertices".format(self.nVertices,))
+                print(" Train {}: - Got positions of the {} vertices".format(self.id, self.nVertices))
 
         # Reading Connection Matrix table
         if self.log:
-            print("\tGoing over graph edges")
+            print( " Train {}: Going over graph edges".format(self.id) )
 
         self.edges = np.ndarray(shape=(self.nVertices,self.nVertices), dtype=float)
         self.edges.fill(-1)
@@ -376,7 +363,7 @@ class Train:
                 raise Exception("Wrong input file format. Number of edges given doesn't match the specified number")
 
             if self.log:
-                print("\t - Read over {} edges in graph".format(edge_count))
+                print(" Train {}: - Read over {} edges in graph".format(self.id, edge_count))
     # -----------------------------------------------------------------------------------------
 
     def calculate_route(self, init, fin):
@@ -415,7 +402,6 @@ class Train:
         temp_nodeID = nodeId
         msg_sent = Message(msgType = MsgTypes.elec_ack, sender = self.id, receiver = temp_nodeID , client = self.unprocessedReqs['ID'])
         self.network.broadcast(msg_sent.encode(), self)
-        # TODO: Check if send_message is needed
     # -----------------------------------------------------------------------------------------
 
     def client_accept(self): # Envia mensagem de líder para todos os trens e request answer para o cliente.
@@ -461,7 +447,7 @@ class Train:
                 b = min(v1, v2)
 
                 if not self.semaphore[ (a, b) ]:
-                    print("Road occupied. Try again later")
+                    print( " Train {}: Road occupied. Try again later".format(self.id) )
                     return
 
                 else:
@@ -474,7 +460,6 @@ class Train:
                     magnitude = distance.euclidean(self.path[0], self.pos)
                     direction = (nextEdge[0] / magnitude, nextEdge[1] / magnitude)
                     self.v = [self.vMax * direction[0], self.vMax * direction[1]]
-
     # -----------------------------------------------------------------------------------------
 
     def draw(self, ax):
@@ -500,5 +485,5 @@ class Train:
     # -----------------------------------------------------------------------------------------
 
     def kill(self):
-        print("Command for Killing Me")
+        print( " Train {}: Command for Killing Me".format(self.id) )
         del self

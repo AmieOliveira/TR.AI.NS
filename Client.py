@@ -56,14 +56,76 @@ class Client:
         # Initial client mode
         self.mode = CliModes.login
 
-        # TODO: Check
+        # Request status variables
+        self.leaveLogin = True
+        self.reqAnswer = False
+        self.answerTimer = 0
+        self.answerTimeout = 100
 
+        # Train that accepted me
+        self.train = None
     # ---------------------------------------------------
+
     def step(self):
-        # TODO
-        pass
+        """
+            This method executes the whole operation of the client during a logic step.
+            Should be looped to have it functioning.
+        """
+        # Updating timers
+        if self.mode == CliModes.request:
+            self.answerTimer += 1
 
+        # Receiving and interpreting messages
+        currentMessage = None
+        if len(self.messageBuffer) > 0:
+            # In this case there are messages to be interpreted
+            currentMessage = self.messageBuffer.pop()
+
+        if currentMessage:
+            if self.log:
+                print("  Client {}: Received message '{}'".format(self.id, currentMessage.nType.name))
+
+            # NOTE: Already checked that messages are for me in receive_message
+
+            # Case 1: Request acknowledge
+            if currentMessage['type'] == MsgTypes.req_ack.value:
+                self.reqAnswer = True
+                if self.log:
+                    print("  Client {}: Have .".format(self.id))
+                # There is at least one train that will process my request
+
+            # Case 2: Request accept
+            elif currentMessage['type'] == MsgTypes.req_ans.value:
+                self.mode = CliModes.wait
+                self.train = currentMessage['sender']
+        # -----------------------------------
+
+        # Updating client mode of operation
+        if self.mode == CliModes.login:
+            if self.leaveLogin:
+                if self.log:
+                    print("  Client {}: Sending request.".format(self.id))
+                self.request_ride()
+                self.answerTimer = 0
+                self.reqAnswer = False
+                self.mode = CliModes.request
+
+        elif self.mode == CliModes.request:
+            if not self.reqAnswer:
+                if self.answerTimer >= self.answerTimeout:
+                    if self.log:
+                        print( "  Client {}: Timeout. Resending request.".format(self.id) )
+
+                    self.request_ride()
+                    self.answerTimer = 0
+                    self.reqAnswer = False
+
+        # TODO: Check if there are other modes that require notice
+        #elif self.mode == CliModes
+
+        # TODO: Check...
     # ---------------------------------------------------
+
     def receive_message(self, msgStr):
         """
         Receives message in string format and converts it into a protocol class
@@ -72,26 +134,19 @@ class Client:
         msg = Message()
         msg.decode(msgStr)
 
-        if msg.nType == MsgTypes.req_ans:
-            self.messageBuffer += [msg]
-        else:
+        if msg.nType == MsgTypes.req_ans or msg.nType == MsgTypes.req_ack:
             if msg['receiver'] == self.id:
                 self.messageBuffer += [msg]
-
     # ---------------------------------------------------
-    def send_message(self, msg):
-        # TODO
-        pass
 
-    # ---------------------------------------------------
     def request_ride(self):
         """
-        Send request message to the trains
+            Send request message to the trains
         """
         msg_sent = Message(msgType = MsgTypes.req, pickup = self.pos, dropoff=self.destiny)
         self.network.broadcast(msg_sent.encode(), self)
-
     # ---------------------------------------------------
+
     def draw(self, ax):
         """
             Draws the client on the map
@@ -108,9 +163,8 @@ class Client:
             im.set_transform(trans_data)
             x1, x2, y1, y2 = im.get_extent()
             ax.plot(x1, y1, transform=trans_data, zorder=7)
-
-
+    # ---------------------------------------------------
 
     def kill(self):
-        print("Command for Killing Me")
+        print( "  Client {}: Command for Killing Me".format(self.id) )
         del self
