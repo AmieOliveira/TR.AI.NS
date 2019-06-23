@@ -11,6 +11,10 @@ from enum import Enum
 from random import randint
 import csv
 import numpy as np
+import os
+import matplotlib.pyplot as plt
+import matplotlib.cbook as cbook
+import matplotlib.transforms as mtransforms
 
 
 class TrainModes(Enum):
@@ -46,7 +50,7 @@ class Train:
         self.pos = pos0                 # Current position of the train
 
         self.vStep = 1                  # approximate s/step ratio
-        self.v = 0                      # train speed in m/s
+        self.v = [0, 0]                      # train speed in m/s
 
         self.vMax = 6                   # Maximum train speed in m/s
         self.aMax = 1                   # Maximum train acceleration in m/s^2
@@ -73,6 +77,9 @@ class Train:
         self.outOfElec = None           # There has been a client request and this is not the elected train
         self.delayWanted = randint(1,11)
         self.maximumMsgWait = 10
+
+        # Train gif image
+        self.img = os.getcwd() + '/train.png'
     # -----------------------------------------------------------------------------------------
 
     def step(self):
@@ -95,7 +102,7 @@ class Train:
 
         if currentMessage:
             if self.log:
-                print "Received message: %s" % currentMessage.nType.name
+                print("Received message: %s" % currentMessage.nType.name)
                 # print "\t %s" % str(currentMessage.msgDict)
 
             # Case 1: Service request from client
@@ -105,7 +112,7 @@ class Train:
                     if not ('ID' in self.unprocessedReqs.keys()): # Checks if there are current processes ongoing
 
                         if self.log:
-                            print "Processing Client Request"
+                            print("Processing Client Request")
 
                         clientID = currentMessage['sender']
                         route, d = None, None
@@ -128,7 +135,7 @@ class Train:
                         if self.unprocessedReqs['ID'] == currentMessage['clientID']:
                             # NOTE: I assume any car receives first the notice from the client
                             if self.log:
-                                print "Received Election Message"
+                                print("Received Election Message")
 
                             dTot = self.unprocessedReqs['simpleD'] + self.full_distance()
 
@@ -142,7 +149,7 @@ class Train:
                                     self.unprocessedReqs['msgWait'] = 0
 
                                 if self.log:
-                                    print "\t Win this elections round"
+                                    print("\t Win this elections round")
 
                             else:
                                 # Finishes current election process
@@ -150,7 +157,7 @@ class Train:
                                 self.unprocessedReqs = {}
 
                                 if self.log:
-                                    print "\t Lost these elections"
+                                    print("\t Lost these elections")
 
             # Case 3: Election answer
             elif currentMessage['type'] == MsgTypes.elec_ack.value:
@@ -162,7 +169,7 @@ class Train:
                         self.unprocessedReqs = {}
 
                         if self.log:
-                            print "Silenced in these elections. Lost election."
+                            print("Silenced in these elections. Lost election.")
         # ------------------------------------------
 
         # Election start
@@ -171,7 +178,7 @@ class Train:
                 if self.unprocessedReqs['delayT'] == self.delayWanted:
                     # Will start election
                     if self.log:
-                        print "Starting Election!"
+                        print("Starting Election!")
 
                     self.unprocessedReqs['inElections'] = True
                     d = self.unprocessedReqs['simpleD'] + self.full_distance() # Needs to add the distance until the
@@ -187,7 +194,7 @@ class Train:
                     # self.broadcast_leader(self.id) # Inform others who's answering the request
 
                     if self.log:
-                        print "Finishing election! I've won! (ID %i)" % self.id
+                        print("Finishing election! I've won! (ID %i)" % self.id)
 
                     self.path += self.unprocessedReqs['route'] # Adds route to desired path
                     # TODO: Think on pickup and dropoff. Might be strings instead of actual coordinates...
@@ -222,10 +229,6 @@ class Train:
 
             elif self.trainMode == TrainModes.outOfOrder:
                 self.kill()
-        # ------------------------------------------
-
-        # Print new train on simulation screen
-        self.draw()
     # -----------------------------------------------------------------------------------------
 
     def receive_message(self, msgStr):
@@ -263,7 +266,7 @@ class Train:
         # TODO
 
         if self.log:
-            print "Reading map file (%s)" % mapPath
+            print("Reading map file (%s)" % mapPath)
 
         # Getting CSV file names
         graphInfo = "%s/Sheet 1-Graph Info.csv" % mapPath
@@ -272,7 +275,7 @@ class Train:
 
         # Reading Graph Info table
         if self.log:
-            print "\tGoing over graph info"
+            print("\tGoing over graph info")
 
         with open(graphInfo) as csv_file:
             csv_reader = csv.reader(csv_file, delimiter=';')
@@ -289,11 +292,11 @@ class Train:
                 line_count += 1
 
             if self.log:
-                print "\t - Map contains %d vertices and %d edges" % (self.nVertices, self.nEdges)
+                print("\t - Map contains %d vertices and %d edges" % (self.nVertices, self.nEdges))
 
         # Reading Vertices Positions table
         if self.log:
-            print "\tGoing over vertices positions"
+            print("\tGoing over vertices positions")
 
         self.vert_names = []
         self.vert_pos = []
@@ -316,12 +319,12 @@ class Train:
                 raise("Wrong input file format. The number of vertices given doesn't match the number of vertices specified")
 
             if self.log:
-                print "\t - Got positions of the %d vertices. %d are stopping points" % \
-                      (self.nVertices, len(self.stoppingPoints.keys()))
+                print("\t - Got positions of the %d vertices. %d are stopping points" %
+                      (self.nVertices, len(self.stoppingPoints.keys())))
 
         # Reading Connection Matrix table
         if self.log:
-            print "\tGoing over graph edges"
+            print("\tGoing over graph edges")
 
         self.edges = np.ndarray(shape=(self.nVertices,self.nVertices), dtype=float)
         self.edges.fill(-1)
@@ -341,7 +344,7 @@ class Train:
                 raise("Wrong input file format. Number of edges given doesn't match the specified number")
 
             if self.log:
-                print "\t - Read over %d edges in graph" % edge_count
+                print("\t - Read over %d edges in graph" % edge_count)
 
     # -----------------------------------------------------------------------------------------
 
@@ -374,9 +377,26 @@ class Train:
         # TODO
         pass
 
-    def draw(self):
-        # TODO
-        pass
+    def draw(self, ax):
+        """
+            Draws the train on the map
+        :param ax: Subplot object where train should be drawn
+        :return:
+        """
+        rotation = np.angle(self.v[0] + self.v[1]*1j, deg=True)
+
+        with cbook.get_sample_data(self.img) as image_file:
+            image = plt.imread(image_file)
+
+        im = ax.imshow(image, extent=[0, 1, 0, 1], clip_on=True)
+
+        if (self.trainMode == TrainModes.busy):
+            im.set_cmap('nipy_spectral')
+
+        trans_data = mtransforms.Affine2D().scale(2, 2).rotate_deg(rotation).translate(self.pos[0], self.pos[1]) + ax.transData
+        im.set_transform(trans_data)
+        x1, x2, y1, y2 = im.get_extent()
+        ax.plot(x1, y1, transform=trans_data)
 
     def kill(self):
         # TODO

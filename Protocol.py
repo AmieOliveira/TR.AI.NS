@@ -21,11 +21,13 @@ class MsgTypes(Enum):
     'elec_ack' -> Acknowledgement of 'elec' message received. Sent by a train to inform
         the receiver it has received the message and has a smaller distance until the
         target, making it better suited to answer the call
+    'leader'   -> Sent to inform other trains that I will be picking client up
     """
     req = 1
     req_ans = 2
     elec = 3
     elec_ack = 4
+    leader = 5
     # canc -> give up on race
     # map_updt -> update map
 
@@ -61,6 +63,8 @@ class Message:
             self.msgDict["clientID"] = kwargs["client"]
             # self.msgDict["starter"] = kwargs["starter"]
             self.msgDict["receiver"] = kwargs["receiver"]
+        elif self.nType == MsgTypes.leader:            # Leader chosen to answer request
+            self.msgDict["clientID"] = kwargs["client"]
 
     def __getitem__(self, key):
         """

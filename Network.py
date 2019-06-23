@@ -30,7 +30,7 @@ class Network:
         ys = sender.pos[1]
 
         if self.log:
-            print "Sender: %i, Position: (%d,%d)" % (sender.id, xs, ys)
+            print("Sender: %i, Position: (%d,%d)" % (sender.id, xs, ys))
 
         d = 0
 
@@ -39,17 +39,17 @@ class Network:
         if isinstance(sender, Train):
             d = self.sim.trainRange
             if self.log:
-                print "Sender is a train. Can reach %d m" % d
+                print("Sender is a train. Can reach %d m" % d)
         elif isinstance(sender, Client):
             d = self.sim.clientRange
             if self.log:
-                print "Sender is a client. Can reach %d m" % d
+                print("Sender is a client. Can reach %d m" % d)
 
         if self.log:
-            print "Reachable distance: %d" % (d)
+            print("Reachable distance: %d" % (d))
 
         for device in self.sim.devices:
             if sqrt( (xs - device.pos[0])**2 + (ys - device.pos[1])**2 ) <= d:
                 device.receive_message(msgStr)
                 if self.log:
-                    print "Sent message to device %i" % (device.id)
+                    print("Sent message to device %i" % (device.id))

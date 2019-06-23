@@ -8,6 +8,10 @@ __all__ = ['Client']
 
 from Protocol import Message, MsgTypes
 from enum import Enum
+import os
+import matplotlib.pyplot as plt
+import matplotlib.cbook as cbook
+import matplotlib.transforms as mtransforms
 
 
 class CliModes(Enum):
@@ -36,6 +40,8 @@ class Client:
         # Moving attributes
         self.pos = pos0  # Current position of the train
 
+        self.mode = CliModes.login
+        self.img = os.getcwd() + '/man-user.png'
         # TODO: All
         pass
 
@@ -55,9 +61,24 @@ class Client:
         # TODO
         pass
 
-    def draw(self):
-        # TODO
-        pass
+    def draw(self, ax):
+        """
+            Draws the client on the map
+        :param ax: Subplot object where train should be drawn
+        :return:
+        """
+        if self.mode != CliModes.moving:
+            with cbook.get_sample_data(self.img) as image_file:
+                image = plt.imread(image_file)
+
+            im = ax.imshow(image, extent=[0, 1, 0, 1], clip_on=True)
+
+            trans_data = mtransforms.Affine2D().scale(-2, 2).translate(self.pos[0], self.pos[1]) + ax.transData
+            im.set_transform(trans_data)
+            x1, x2, y1, y2 = im.get_extent()
+            ax.plot(x1, y1, transform=trans_data)
+
+
 
     def kill(self):
         # TODO
