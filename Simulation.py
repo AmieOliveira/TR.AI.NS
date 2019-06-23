@@ -33,8 +33,8 @@ args = parser.parse_args()
 class Simulation:
     def __init__(self):
         self.devices = []
-        self.trainRange = 15
-        self.clientRange = 5
+        self.trainRange = 60
+        self.clientRange = 20
 
 
 # Main funtion

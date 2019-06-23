@@ -1,16 +1,16 @@
 """
     Train Robot Classes
     TR.AI.NS Project
-    Author: Amanda
+    Authors: Amanda, Vinicius
 """
 
 __all__ = ['Train']
-
 from Protocol import Message, MsgTypes
 from enum import Enum
 from random import randint
 import csv
 import numpy as np
+from scipy.spatial import distance
 import os
 import matplotlib.pyplot as plt
 import matplotlib.cbook as cbook
@@ -32,7 +32,7 @@ class TrainModes(Enum):
 
 
 class Train:
-    def __init__(self, ID, pos0, mapFile, log=False):
+    def __init__(self, ID, pos0, mapFile, network, log=False):
         """
             Class Train contains the whole operational code for a transportation unit in
             the TR.AI.NS project.
@@ -43,6 +43,9 @@ class Train:
         """
         self.id = ID
 
+        # Network object
+        self.network = network
+
         # Logging variable
         self.log = log
 
@@ -51,6 +54,7 @@ class Train:
 
         self.vStep = 1                  # approximate s/step ratio
         self.v = [0, 0]                      # train speed in m/s
+        # Quando evoluir adiconar aceleração
 
         self.vMax = 6                   # Maximum train speed in m/s
         self.aMax = 1                   # Maximum train acceleration in m/s^2
@@ -69,14 +73,14 @@ class Train:
         self.client = []                # List of pickup and dropOff locations for the next clients, with the client ID
                                         # [(Id1, pickup1, dropoff1), ...]
 
-        self.path = []                 # List of intersections '(x, y)' to be passed through
+        self.path = []                 # List of vertices '(x, y)' to be passed through
 
         # Elections variables
         self.unprocessedReqs = {}       # Client request that is on process of train elections
                                         # Requests handled in dictionaries. ONLY ONE ALLOWED PER TURN
         self.outOfElec = None           # There has been a client request and this is not the elected train
         self.delayWanted = randint(1,11)
-        self.maximumMsgWait = 10
+        self.maximumMsgWait = 100
 
         # Train gif image
         self.img = os.getcwd() + '/train.png'
@@ -102,7 +106,7 @@ class Train:
 
         if currentMessage:
             if self.log:
-                print("Received message: %s" % currentMessage.nType.name)
+                print("Received message: {}".format(currentMessage.nType.name))
                 # print "\t %s" % str(currentMessage.msgDict)
 
             # Case 1: Service request from client
@@ -124,6 +128,8 @@ class Train:
                         self.unprocessedReqs = dict(ID=clientID, pickup=currentMessage['pickUp'],
                                                     dropoff=currentMessage['dropOff'], delayT=0,
                                                     inElections=False, simpleD=d, route=route, msgWait=0)
+                        # TODO: Train answers Request!
+                        # Create a message type to indicate to client that the request has been heard and is being processed
 
             # Case 2: Election started
             elif currentMessage['type'] == MsgTypes.elec.value:
@@ -151,6 +157,8 @@ class Train:
                                 if self.log:
                                     print("\t Win this elections round")
 
+                            # TODO: Solve the case where they both have the same distance
+                            # Desmpate pelo id???
                             else:
                                 # Finishes current election process
                                 self.outOfElec = self.unprocessedReqs['ID']
@@ -170,6 +178,20 @@ class Train:
 
                         if self.log:
                             print("Silenced in these elections. Lost election.")
+
+            # Case 4: Leader Message
+            elif currentMessage['type'] == MsgTypes.leader:
+                if "ID" in self.unprocessedReqs.keys():
+                    if self.unprocessedReqs['ID'] == currentMessage['clientID']: # Checks if this message is from current election
+                        self.outOfElec = self.unprocessedReqs['ID']
+                        self.unprocessedReqs = {}
+
+                        if self.log:
+                            print("Got an election leader in these elections. Lost election.")
+
+            # Any other type of message is certainly not destined to myself, therefore no action is taken
+            else:
+                pass
         # ------------------------------------------
 
         # Election start
@@ -194,13 +216,13 @@ class Train:
                     # self.broadcast_leader(self.id) # Inform others who's answering the request
 
                     if self.log:
-                        print("Finishing election! I've won! (ID %i)" % self.id)
+                        print("Finishing election! I've won! (ID {})".format(self.id))
 
                     self.path += self.unprocessedReqs['route'] # Adds route to desired path
                     # TODO: Think on pickup and dropoff. Might be strings instead of actual coordinates...
                     # In this case I'd need to convert into coordinates
                     self.client += [(self.unprocessedReqs['ID'], self.unprocessedReqs['pickup'], self.unprocessedReqs['dropoff'])]
-                    self.client_accept(self.unprocessedReqs['ID'])
+                    self.client_accept()
                     self.unprocessedReqs = {} # Finishes current election process
 
                     if self.trainMode == TrainModes.wait:
@@ -250,12 +272,20 @@ class Train:
         else:
             if msg['receiver'] == self.id:
                 self.messageBuffer += [msg]
-
     # -----------------------------------------------------------------------------------------
 
-    def send_message(self):
-        # TODO
-        pass
+    def send_message(self, msgType, **kwargs):
+        """
+            Send messaages to others trains
+        :param msgType:
+        :param kwargs:
+        :return:
+        """
+        # TODO: Check if this method is needed
+        temp_dict = kwargs
+        msg_sent = Message(msgType = msgType, sender = self.id, kwargs=temp_dict)
+        self.network.broadcast(msg_sent.encode(), self)
+    # -----------------------------------------------------------------------------------------
 
     def load_map(self, mapPath):
         """
@@ -263,10 +293,9 @@ class Train:
         :param mapPath: The folder path for the CSV files with the map content. Files
             must be created according to the model file format
         """
-        # TODO
 
         if self.log:
-            print("Reading map file (%s)" % mapPath)
+            print("Reading map file ({})".format(mapPath))
 
         # Getting CSV file names
         graphInfo = "%s/Sheet 1-Graph Info.csv" % mapPath
@@ -292,7 +321,7 @@ class Train:
                 line_count += 1
 
             if self.log:
-                print("\t - Map contains %d vertices and %d edges" % (self.nVertices, self.nEdges))
+                print("\t - Map contains {} vertices and {} edges".format(self.nVertices, self.nEdges))
 
         # Reading Vertices Positions table
         if self.log:
@@ -301,7 +330,7 @@ class Train:
         self.vert_names = []
         self.vert_pos = []
         self.stoppingPoints = {}
-        # TODO: Check what dictionaries are useful to have as attributes
+        # TODO: Check what dictionaries are useful to have as attributes , Map Variables
 
         with open(vertices) as csv_file:
             csv_reader = csv.reader(csv_file, delimiter=';')
@@ -316,11 +345,10 @@ class Train:
                     self.stoppingPoints[row[0]] = line_count
                 line_count += 1
             if line_count != self.nVertices:
-                raise("Wrong input file format. The number of vertices given doesn't match the number of vertices specified")
+                raise Exception("Wrong input file format. The number of vertices given doesn't match the number of vertices specified")
 
             if self.log:
-                print("\t - Got positions of the %d vertices. %d are stopping points" %
-                      (self.nVertices, len(self.stoppingPoints.keys())))
+                print("\t - Got positions of the {} vertices. {} are stopping points".format(self.nVertices, len(self.stoppingPoints.keys())))
 
         # Reading Connection Matrix table
         if self.log:
@@ -341,40 +369,59 @@ class Train:
                             edge_count += 1
                 line_count += 1
             if self.nEdges != edge_count:
-                raise("Wrong input file format. Number of edges given doesn't match the specified number")
+                raise Exception("Wrong input file format. Number of edges given doesn't match the specified number")
 
             if self.log:
-                print("\t - Read over %d edges in graph" % edge_count)
-
+                print("\t - Read over {} edges in graph".format(edge_count))
     # -----------------------------------------------------------------------------------------
 
     def calculate_route(self, init, fin):
         # TODO
         return [], 4
+    # -----------------------------------------------------------------------------------------
 
     def full_distance(self):
-        # TODO: gives the whole distance to be run in path
-        return 0
+        sum = 0
+        if self.path != []:
+            for index in range(len(self.path)-1):
+                sum += distance.euclidean(self.path[index],self.path[index+1])
+                continue
+        return sum
+    # -----------------------------------------------------------------------------------------
 
     def start_election(self, distance):
-        # TODO
-        pass
+        """
+            Starts election by broadcasting elec message to other trains
+        :param distance: distance from my position until the pickup location
+        :return:
+        """
+        temp_distance = distance
+        msg_sent = Message(msgType = MsgTypes.elec, sender = self.id, distance = temp_distance , client = self.unprocessedReqs['ID'])
+        self.network.broadcast(msg_sent.encode(), self)
 
+    # -----------------------------------------------------------------------------------------
     # TODO: Broadcast the leader (itself) for consistency purposes
     # With this the problem of electing two leaders could be adressed
     # def broadcast_leader(self):
     #
 
+    # -----------------------------------------------------------------------------------------
     def silence_train(self, nodeId):
-        # TODO
-        pass
+        temp_nodeID = nodeId
+        msg_sent = Message(msgType = MsgTypes.elec_ack, sender = self.id, receiver = temp_nodeID , client = self.unprocessedReqs['ID'])
+        self.network.broadcast(msg_sent.encode(), self)
+        # TODO: Check if send_message is needed
 
-    def client_accept(self, clientId):
-        # TODO
-        pass
+    # -----------------------------------------------------------------------------------------
+    def client_accept(self): # Envia mensagem de líder para todos os trens e request answer para o cliente.
+        msg_sent_trains = Message(msgType = MsgTypes.leader, sender = self.id, client = self.unprocessedReqs['ID'])
+        self.network.broadcast(msg_sent_trains.encode(), self)
+        msg_sent_client = Message(msgType = MsgTypes.req_ans, sender = self.id, receiver = self.unprocessedReqs['ID'])
+        self.network.broadcast(msg_sent_client.encode(), self)
 
     def move(self):
         # TODO
+        # Controle de Movimento e Posicionamento
         pass
 
     def draw(self, ax):
@@ -397,7 +444,8 @@ class Train:
         im.set_transform(trans_data)
         x1, x2, y1, y2 = im.get_extent()
         ax.plot(x1, y1, transform=trans_data)
+    # -----------------------------------------------------------------------------------------
 
     def kill(self):
-        # TODO
-        pass
+        print("Command for Killing Me")
+        del self

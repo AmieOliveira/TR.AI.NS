@@ -1,7 +1,7 @@
 """
     Train Robot Classes
     TR.AI.NS Project
-    Author: Amanda
+    Authors: Amanda, Vinicius
 """
 
 __all__ = ['Client']
@@ -31,36 +31,67 @@ class CliModes(Enum):
 
 
 class Client:
-    def __init__(self, ID, pos0, mapFile, log=False):
+    def __init__(self, ID, pos0, destiny, mapFile, network, log=False):
         self.id = ID
+        if int(self.id) == self.id:
+            self.id = ID + .5
+            print("Client IDs should be some number and a half. Client ID is {}".format(self.id))
 
         # Logging variable
         self.log = log
 
+        # Network object
+        self.network = network # Connecto to the network communication system
+
         # Moving attributes
         self.pos = pos0  # Current position of the train
+        self.destiny = destiny # Current client destiny
 
-        self.mode = CliModes.login
+        # Message buffer
+        self.messageBuffer = []
+
+        # Client gif image
         self.img = os.getcwd() + '/man-user.png'
-        # TODO: All
-        pass
 
+        # Initial client mode
+        self.mode = CliModes.login
+
+        # TODO: Check
+
+    # ---------------------------------------------------
     def step(self):
         # TODO
         pass
 
+    # ---------------------------------------------------
     def receive_message(self, msgStr):
-        # TODO
-        pass
+        """
+        Receives message in string format and converts it into a protocol class
+        :param msgStr: Should be a string coded with the message
+        """
+        msg = Message()
+        msg.decode(msgStr)
 
+        if msg.nType == MsgTypes.req_ans:
+            self.messageBuffer += [msg]
+        else:
+            if msg['receiver'] == self.id:
+                self.messageBuffer += [msg]
+
+    # ---------------------------------------------------
     def send_message(self, msg):
         # TODO
         pass
 
+    # ---------------------------------------------------
     def request_ride(self):
-        # TODO
-        pass
+        """
+        Send request message to the trains
+        """
+        msg_sent = Message(msgType = MsgTypes.req, pickup = self.pos, dropoff=self.destiny)
+        self.network.broadcast(msg_sent.encode(), self)
 
+    # ---------------------------------------------------
     def draw(self, ax):
         """
             Draws the client on the map
@@ -81,5 +112,5 @@ class Client:
 
 
     def kill(self):
-        # TODO
-        pass
+        print("Command for Killing Me")
+        del self
