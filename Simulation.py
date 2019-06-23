@@ -7,7 +7,6 @@
 
 from Train import Train
 from Client import Client
-from Protocol import Message, MsgTypes
 from Network import Network
 
 
@@ -23,8 +22,12 @@ plt.switch_backend('TkAgg')
 parser = argparse.ArgumentParser(description='Simulation of TR.AI.NS project')
 
 required = parser.add_argument_group('Required Arguments')
-required.add_argument( '-m', '--mapFile', type=str,required=True,
+required.add_argument( '-m', '--map-file', type=str, required=True,
                        help='Relative path to map files' )
+
+modifiers = parser.add_argument_group('Simulation modifier Arguments')
+modifiers.add_argument( '-nT', '--number-of-trains', type=int, default=3,
+                        help='Number of trains the simulation should initially contain' )
 
 
 args = parser.parse_args()
@@ -40,7 +43,7 @@ class Simulation:
 # Main funtion
 if __name__ == "__main__":
     # Loading map:
-    mapPath = args.mapFile
+    mapPath = args.map_file
     print("Reading map file (%s)" % mapPath)
 
     # Getting CSV file names
@@ -89,8 +92,7 @@ if __name__ == "__main__":
                 stoppingPoints[row[0]] = line_count
             line_count += 1
         if line_count != nVertices:
-            raise (
-            "Wrong input file format. The number of vertices given doesn't match the number of vertices specified")
+            raise Exception("Wrong input file format. The number of vertices given doesn't match the number of vertices specified")
 
         print("\t - Got positions of the %d vertices. %d are stopping points" %
               (nVertices, len(stoppingPoints.keys())))
@@ -113,7 +115,7 @@ if __name__ == "__main__":
                         edge_count += 1
             line_count += 1
         if nEdges != edge_count:
-            raise ("Wrong input file format. Number of edges given doesn't match the specified number")
+            raise Exception("Wrong input file format. Number of edges given doesn't match the specified number")
 
         print("\t - Read over %d edges in graph" % edge_count)
 
@@ -126,18 +128,18 @@ if __name__ == "__main__":
 
     # ------------------------------
     # Creating train objects
-    nTrains = 3
-    # TODO: Put as an argument...
+    nTrains = args.number_of_trains
 
     for i in range(nTrains):
         pos = vert_pos[ randint(0,nVertices-1) ]
-        tr = Train(i, pos, mapFile=mapPath, log=True)
+        tr = Train(i, pos, mapPath, net, log=True)
         sim.devices += [tr]
 
     # ------------------------------
     # Creating initial client object
     pos = vert_pos[ stoppingPoints["Point 1"] ]
-    cl = Client(.5, pos, mapPath, log=True)
+    dest = vert_pos[ stoppingPoints["Point 3"] ]
+    cl = Client(.5, pos, dest, mapPath, net, log=True)
     sim.devices += [cl]
 
     # ------------------------------
@@ -145,36 +147,47 @@ if __name__ == "__main__":
     finished = False
     simTime = 0
 
-    fig = plt.figure()
+    fig = plt.figure(figsize=(10, 10))
+    fig.suptitle( "TR.AI.NS Simulation", fontweight='bold', fontsize=17 )
+
     ax = fig.add_subplot(1, 1, 1)
     plt.show(block=False)
 
     while not finished:
-        simTime += 1
-        print(simTime)
+        print( "Simulation counter: {}".format(simTime) )
 
         # Run all devices
         for device in sim.devices:
             device.step()
 
         # Print map
+        ax.cla()
+
         nEdgesDrawn = 0
         for i in range(nVertices):
             for j in range(nVertices):
                 if j >= i:
                     break;
                 if edges[i][j] > 0:
-                    ax.plot([vert_pos[i][0], vert_pos[j][0]], [vert_pos[i][1], vert_pos[j][1]], 'k')
+                    ax.plot([vert_pos[i][0], vert_pos[j][0]], [vert_pos[i][1], vert_pos[j][1]], 'k', zorder=1)
                     nEdgesDrawn += 1
         # print(f"{nEdgesDrawn} edges drawn of {nEdges}.")
 
         for ponto in stoppingPoints.keys():
             pos = vert_pos[stoppingPoints[ponto]]
-            c = plt.Circle(pos, radius=.4, color='r')
+            c = plt.Circle(pos, radius=.4, color='r', zorder=0)
             ax.add_patch(c)
-            ax.text(pos[0] + .1, pos[1] + .2, ponto, fontsize=12, wrap=True)
+            ax.text(pos[0] + .1, pos[1] + .2, ponto, fontsize=12, wrap=True, zorder=2)
 
-        ax.axes.autoscale()
+        xmin, xmax, ymin, ymax = ax.axis()
+        diverge = 2
+        xmin = xmin - diverge
+        xmax = xmax + diverge
+        ymin = ymin - diverge
+        ymax = ymax + diverge
+        ax.axis([xmin, xmax, ymin, ymax])
+
+        # TODO: Print in canvas the current simulation hour
 
         for device in sim.devices:
             device.draw(ax)
@@ -183,6 +196,8 @@ if __name__ == "__main__":
         fig.canvas.flush_events()
         time.sleep(.5)
 
+
+        simTime += 1
         if simTime >= 5:
             finished = True
 

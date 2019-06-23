@@ -51,7 +51,7 @@ class Client:
         self.messageBuffer = []
 
         # Client gif image
-        self.img = os.getcwd() + '/man-user.png'
+        self.img = os.path.dirname(os.path.abspath(__file__)) + '/man-user.png'
 
         # Initial client mode
         self.mode = CliModes.login
@@ -107,7 +107,7 @@ class Client:
             trans_data = mtransforms.Affine2D().scale(-2, 2).translate(self.pos[0], self.pos[1]) + ax.transData
             im.set_transform(trans_data)
             x1, x2, y1, y2 = im.get_extent()
-            ax.plot(x1, y1, transform=trans_data)
+            ax.plot(x1, y1, transform=trans_data, zorder=7)
 
 
 

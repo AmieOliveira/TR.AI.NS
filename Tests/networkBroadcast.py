@@ -35,9 +35,9 @@ mE = Message(MsgTypes.elec, sender=tr1.id, distance=10, client=-1)
 
 net.broadcast(m.encode(), cl1)
 
-print ("Train 1: ", tr1.messageBuffer)
+print ("Train 1: %s" % tr1.messageBuffer)
 print ("Train 2: ", tr2.messageBuffer)
-print ("Train 3: ", tr3.messageBuffer)
+print ("Train 3: {}", tr3.messageBuffer)
 
 net.broadcast(mE.encode(), tr1)
 

@@ -52,12 +52,12 @@ class Train:
         # Moving attributes
         self.pos = pos0                 # Current position of the train
 
-        self.vStep = 1                  # approximate s/step ratio
+        self.vStep = .1                  # approximate s/step ratio
         self.v = [0, 0]                      # train speed in m/s
         # Quando evoluir adiconar aceleração
 
         self.vMax = 6                   # Maximum train speed in m/s
-        self.aMax = 1                   # Maximum train acceleration in m/s^2
+        #self.aMax = 1                   # Maximum train acceleration in m/s^2
         # TODO: Check this variables
 
         # Messaging attributes
@@ -83,7 +83,7 @@ class Train:
         self.maximumMsgWait = 100
 
         # Train gif image
-        self.img = os.getcwd() + '/train.png'
+        self.img = os.path.dirname(os.path.abspath(__file__)) + '/train.png'
     # -----------------------------------------------------------------------------------------
 
     def step(self):
@@ -398,31 +398,54 @@ class Train:
         temp_distance = distance
         msg_sent = Message(msgType = MsgTypes.elec, sender = self.id, distance = temp_distance , client = self.unprocessedReqs['ID'])
         self.network.broadcast(msg_sent.encode(), self)
-
     # -----------------------------------------------------------------------------------------
-    # TODO: Broadcast the leader (itself) for consistency purposes
-    # With this the problem of electing two leaders could be adressed
-    # def broadcast_leader(self):
-    #
 
-    # -----------------------------------------------------------------------------------------
     def silence_train(self, nodeId):
         temp_nodeID = nodeId
         msg_sent = Message(msgType = MsgTypes.elec_ack, sender = self.id, receiver = temp_nodeID , client = self.unprocessedReqs['ID'])
         self.network.broadcast(msg_sent.encode(), self)
         # TODO: Check if send_message is needed
-
     # -----------------------------------------------------------------------------------------
+
     def client_accept(self): # Envia mensagem de líder para todos os trens e request answer para o cliente.
         msg_sent_trains = Message(msgType = MsgTypes.leader, sender = self.id, client = self.unprocessedReqs['ID'])
         self.network.broadcast(msg_sent_trains.encode(), self)
         msg_sent_client = Message(msgType = MsgTypes.req_ans, sender = self.id, receiver = self.unprocessedReqs['ID'])
         self.network.broadcast(msg_sent_client.encode(), self)
+    # -----------------------------------------------------------------------------------------
 
     def move(self):
-        # TODO
-        # Controle de Movimento e Posicionamento
-        pass
+        # NOTE: Train is currently traveling with constant speed throughout vertices
+        # (No acceleration considered)
+
+        if len(self.path) > 0:
+            # Fist: move train according to current speed
+            self.pos[0] += self.v[0] * self.vStep
+            self.pos[1] += self.v[1] * self.vStep
+
+            distanceToVertice = (self.path[0][0] - self.pos[0], self.path[0][1] - self.pos[1])
+            if (distanceToVertice[0] * self.v[0] < 0) or (distanceToVertice[1] * self.v[1] < 0):
+                # Passed vertice! Roll back
+                self.pos = [self.path[0][0], self.path[0][1]]
+
+            # Second: update path
+            if (self.pos[0] == self.path[0][0]) and (self.pos[1] == self.path[0][1]):
+                self.path = self.path[1:]
+                self.v = [0, 0]
+
+                if self.pos == self.currentGoal:
+                    # Will pick up or drop off a client
+                    return
+
+            if self.v == [0, 0]:
+                # TODO: Put precaution to verify if path is available
+                # Updating speed
+                nextEdge = (self.path[0][0] - self.pos[0], self.path[0][1] - self.pos[1])
+                magnitude = distance.euclidean(self.path[0], self.pos)
+                direction = (nextEdge[0] / magnitude, nextEdge[1] / magnitude)
+                self.v = [self.vMax * direction[0], self.vMax * direction[1]]
+
+    # -----------------------------------------------------------------------------------------
 
     def draw(self, ax):
         """
@@ -443,7 +466,7 @@ class Train:
         trans_data = mtransforms.Affine2D().scale(2, 2).rotate_deg(rotation).translate(self.pos[0], self.pos[1]) + ax.transData
         im.set_transform(trans_data)
         x1, x2, y1, y2 = im.get_extent()
-        ax.plot(x1, y1, transform=trans_data)
+        ax.plot(x1, y1, transform=trans_data, zorder=5)
     # -----------------------------------------------------------------------------------------
 
     def kill(self):
