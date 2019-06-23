@@ -14,6 +14,8 @@ class MsgTypes(Enum):
     """
         Group of message types that can be exchanged in the system
     'req'      -> Service request from client
+    'req_ack'  -> Message sent by the train to the client to let it know the request is
+        being processed
     'req_ans'  -> Train accept of the client request (to be sent by the selected train
         amongst the ones that received the request)
     'elec'     -> Election message, used to select the train that will accept the client
@@ -24,6 +26,7 @@ class MsgTypes(Enum):
     'leader'   -> Sent to inform other trains that I will be picking client up
     """
     req = 1
+    req_ack = 6
     req_ans = 2
     elec = 3
     elec_ack = 4
@@ -51,6 +54,8 @@ class Message:
         if self.nType == MsgTypes.req:               # Client is requesting pickup
             self.msgDict["pickUp"] = kwargs["pickup"]
             self.msgDict["dropOff"] = kwargs["dropoff"]
+        elif self.nType == MsgTypes.req_ack:           # Train will process request
+            self.msgDict["receiver"] = kwargs["receiver"]
         elif self.nType == MsgTypes.req_ans:           # Train has accepted client request
             self.msgDict["receiver"] = kwargs["receiver"]
         elif self.nType == MsgTypes.elec:              # Leader election message

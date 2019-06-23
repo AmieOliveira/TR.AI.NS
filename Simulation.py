@@ -103,6 +103,9 @@ if __name__ == "__main__":
     edges = np.ndarray(shape=(nVertices, nVertices), dtype=float)
     edges.fill(-1)
 
+    # Availability dictionary
+    availability = {}
+
     with open(connections) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=';')
         line_count = 0
@@ -111,6 +114,12 @@ if __name__ == "__main__":
             for i in range(nVertices):
                 if row[i] != "":
                     edges[line_count][i] = float(row[i])
+
+                    if line_count != i:
+                        a = max(line_count, i)
+                        b = min(line_count, i)
+                        availability[ (a, b) ] = True
+
                     if line_count > i:
                         edge_count += 1
             line_count += 1
@@ -118,7 +127,6 @@ if __name__ == "__main__":
             raise Exception("Wrong input file format. Number of edges given doesn't match the specified number")
 
         print("\t - Read over %d edges in graph" % edge_count)
-
 
     # ------------------------------
     # Creating Network
@@ -132,7 +140,7 @@ if __name__ == "__main__":
 
     for i in range(nTrains):
         pos = vert_pos[ randint(0,nVertices-1) ]
-        tr = Train(i, pos, mapPath, net, log=True)
+        tr = Train(i, pos, mapPath, availability, net, log=True)
         sim.devices += [tr]
 
     # ------------------------------

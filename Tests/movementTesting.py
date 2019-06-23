@@ -77,8 +77,13 @@ with open(vertices) as csv_file:
 
 # Reading Connection Matrix table
 print("\tGoing over graph edges")
+
 edges = np.ndarray(shape=(nVertices, nVertices), dtype=float)
 edges.fill(-1)
+
+# Availability dictionary
+availability = {}
+
 with open(connections) as csv_file:
     csv_reader = csv.reader(csv_file, delimiter=';')
     line_count = 0
@@ -87,6 +92,12 @@ with open(connections) as csv_file:
         for i in range(nVertices):
             if row[i] != "":
                 edges[line_count][i] = float(row[i])
+
+                if line_count != i:
+                    a = max(line_count, i)
+                    b = min(line_count, i)
+                    availability[(a, b)] = True
+
                 if line_count > i:
                     edge_count += 1
         line_count += 1
@@ -102,7 +113,7 @@ net = Network(sim, log=True)
 
 # Creating train object
 pos = list(vert_pos[1])
-tr = Train(0, pos, mapPath, net, log=True)
+tr = Train(0, pos, mapPath, availability, net, log=True)
 sim.devices += [tr]
 
 tr.path = [ (0, 15), (10, 15), (10, 5), (20, 5), (20, 0), (30, 0), (30, 5), (30, 15), (20, 15), (20, 25) ]
@@ -120,6 +131,8 @@ while tr.path:
 
     # Run all devices
     tr.step()
+
+    print(availability)
 
     # Print map
     ax.cla()

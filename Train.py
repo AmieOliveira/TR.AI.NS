@@ -32,7 +32,7 @@ class TrainModes(Enum):
 
 
 class Train:
-    def __init__(self, ID, pos0, mapFile, network, log=False):
+    def __init__(self, ID, pos0, mapFile, edgeAvaliability, network, log=False):
         """
             Class Train contains the whole operational code for a transportation unit in
             the TR.AI.NS project.
@@ -52,6 +52,8 @@ class Train:
         # Moving attributes
         self.pos = pos0                 # Current position of the train
 
+        self.currentEdge = None
+
         self.vStep = .1                  # approximate s/step ratio
         self.v = [0, 0]                      # train speed in m/s
         # Quando evoluir adiconar aceleração
@@ -65,6 +67,7 @@ class Train:
 
         # Map attributes
         self.load_map(mapFile)
+        self.semaphore = edgeAvaliability
 
         # Operational attributes    (related to the paths being and to be taken)
         self.trainMode = TrainModes.wait        # Current mode of operation of the train
@@ -114,7 +117,6 @@ class Train:
 
                 if self.trainMode != TrainModes.outOfOrder: # Checks if train can accept
                     if not ('ID' in self.unprocessedReqs.keys()): # Checks if there are current processes ongoing
-
                         if self.log:
                             print("Processing Client Request")
 
@@ -128,6 +130,8 @@ class Train:
                         self.unprocessedReqs = dict(ID=clientID, pickup=currentMessage['pickUp'],
                                                     dropoff=currentMessage['dropOff'], delayT=0,
                                                     inElections=False, simpleD=d, route=route, msgWait=0)
+
+                        self.acknowlege_request()
                         # TODO: Train answers Request!
                         # Create a message type to indicate to client that the request has been heard and is being processed
 
@@ -329,7 +333,8 @@ class Train:
 
         self.vert_names = []
         self.vert_pos = []
-        self.stoppingPoints = {}
+        self.vert_idx = {}
+
         # TODO: Check what dictionaries are useful to have as attributes , Map Variables
 
         with open(vertices) as csv_file:
@@ -341,14 +346,13 @@ class Train:
                     continue
                 self.vert_names += [ row[0] ]
                 self.vert_pos += [ (float(row[1]), float(row[2])) ]
-                if row[0][0] != "_":
-                    self.stoppingPoints[row[0]] = line_count
+                self.vert_idx[ (float(row[1]), float(row[2])) ] = line_count
                 line_count += 1
             if line_count != self.nVertices:
                 raise Exception("Wrong input file format. The number of vertices given doesn't match the number of vertices specified")
 
             if self.log:
-                print("\t - Got positions of the {} vertices. {} are stopping points".format(self.nVertices, len(self.stoppingPoints.keys())))
+                print("\t - Got positions of the {} vertices".format(self.nVertices,))
 
         # Reading Connection Matrix table
         if self.log:
@@ -389,11 +393,18 @@ class Train:
         return sum
     # -----------------------------------------------------------------------------------------
 
+    def acknowlege_request(self):
+        """
+            Sends answer to client to let it know the request is being processed
+        """
+        msg = Message(msgType=MsgTypes.req_ack, sender=self.id, receiver=self.unprocessedReqs['ID'])
+        self.network.broadcast(msg.encode(), self)
+    # -----------------------------------------------------------------------------------------
+
     def start_election(self, distance):
         """
             Starts election by broadcasting elec message to other trains
         :param distance: distance from my position until the pickup location
-        :return:
         """
         temp_distance = distance
         msg_sent = Message(msgType = MsgTypes.elec, sender = self.id, distance = temp_distance , client = self.unprocessedReqs['ID'])
@@ -430,6 +441,11 @@ class Train:
 
             # Second: update path
             if (self.pos[0] == self.path[0][0]) and (self.pos[1] == self.path[0][1]):
+                # Disocupy road
+                self.semaphore[ self.currentEdge ] = True
+                self.currentEdge = None
+
+                # Go to next speed step
                 self.path = self.path[1:]
                 self.v = [0, 0]
 
@@ -438,12 +454,26 @@ class Train:
                     return
 
             if self.v == [0, 0]:
-                # TODO: Put precaution to verify if path is available
-                # Updating speed
-                nextEdge = (self.path[0][0] - self.pos[0], self.path[0][1] - self.pos[1])
-                magnitude = distance.euclidean(self.path[0], self.pos)
-                direction = (nextEdge[0] / magnitude, nextEdge[1] / magnitude)
-                self.v = [self.vMax * direction[0], self.vMax * direction[1]]
+                v1 = self.vert_idx[ (self.pos[0], self.pos[1]) ]
+                v2 = self.vert_idx[ (self.path[0][0], self.path[0][1]) ]
+
+                a = max(v1, v2)
+                b = min(v1, v2)
+
+                if not self.semaphore[ (a, b) ]:
+                    print("Road occupied. Try again later")
+                    return
+
+                else:
+                    # Occupying road
+                    self.semaphore[(a, b)] = False
+                    self.currentEdge = (a, b)
+
+                    # Updating speed
+                    nextEdge = (self.path[0][0] - self.pos[0], self.path[0][1] - self.pos[1])
+                    magnitude = distance.euclidean(self.path[0], self.pos)
+                    direction = (nextEdge[0] / magnitude, nextEdge[1] / magnitude)
+                    self.v = [self.vMax * direction[0], self.vMax * direction[1]]
 
     # -----------------------------------------------------------------------------------------
 
