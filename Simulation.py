@@ -36,8 +36,8 @@ args = parser.parse_args()
 class Simulation:
     def __init__(self):
         self.devices = []
-        self.trainRange = 60
-        self.clientRange = 20
+        self.trainRange = 120
+        self.clientRange = 40
 
 
 # Main funtion
@@ -148,7 +148,7 @@ if __name__ == "__main__":
     pos = vert_pos[ stoppingPoints["Point 1"] ]
     dest = vert_pos[ stoppingPoints["Point 3"] ]
     cl = Client(.5, pos, dest, mapPath, net, log=True)
-    sim.devices += [cl]
+    sim.devices = [cl] + sim.devices
 
     # ------------------------------
     # Looping simulation
@@ -177,15 +177,15 @@ if __name__ == "__main__":
                 if j >= i:
                     break;
                 if edges[i][j] > 0:
-                    ax.plot([vert_pos[i][0], vert_pos[j][0]], [vert_pos[i][1], vert_pos[j][1]], 'k', zorder=1)
+                    ax.plot([vert_pos[i][0], vert_pos[j][0]], [vert_pos[i][1], vert_pos[j][1]], 'k', zorder=-4)
                     nEdgesDrawn += 1
         # print(f"{nEdgesDrawn} edges drawn of {nEdges}.")
 
         for ponto in stoppingPoints.keys():
             pos = vert_pos[stoppingPoints[ponto]]
-            c = plt.Circle(pos, radius=.4, color='r', zorder=0)
+            c = plt.Circle(pos, radius=.4, color='r', zorder=-5)
             ax.add_patch(c)
-            ax.text(pos[0] + .1, pos[1] + .2, ponto, fontsize=12, wrap=True, zorder=2)
+            ax.text(pos[0] + .2, pos[1] + .4, ponto, fontsize=12, wrap=True, zorder=-3)
 
         xmin, xmax, ymin, ymax = ax.axis()
         diverge = 2

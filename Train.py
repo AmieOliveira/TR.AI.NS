@@ -108,7 +108,7 @@ class Train:
 
         if currentMessage:
             if self.log:
-                print(" Train {}: Received message '{}'".format(self.id, currentMessage.nType.name))
+                print(" \033[94mTrain {}:\033[0m Received message '{}'".format(self.id, currentMessage.nType.name))
                 # print "\t %s" % str(currentMessage.msgDict)
 
             # Case 1: Service request from client
@@ -119,7 +119,7 @@ class Train:
                         clientID = currentMessage['sender']
 
                         if self.log:
-                            print(" Train {}: Processing Client {} Request".format(self.id, clientID))
+                            print(" \033[94mTrain {}:\033[0m Processing Client {} Request".format(self.id, clientID))
 
                         route, d = None, None
                         # Calculate route
@@ -144,7 +144,7 @@ class Train:
                         if self.unprocessedReqs['ID'] == currentMessage['clientID']:
                             # NOTE: I assume any car receives first the notice from the client
                             if self.log:
-                                print(" Train {}: Received Election Message (from {})".format(self.id, currentMessage['sender']))
+                                print(" \033[94mTrain {}:\033[0m Received Election Message (from {})".format(self.id, currentMessage['sender']))
 
                             dTot = self.unprocessedReqs['simpleD'] + self.full_distance()
 
@@ -158,7 +158,7 @@ class Train:
                                     self.unprocessedReqs['msgWait'] = 0
 
                                 if self.log:
-                                    print( " Train {}: Win this elections round".format(self.id) )
+                                    print( " \033[94mTrain {}:\033[0m Win this elections round".format(self.id) )
 
                             # TODO: Solve the case where they both have the same distance
                             # Desmpate pelo id???
@@ -168,7 +168,7 @@ class Train:
                                 self.unprocessedReqs = {}
 
                                 if self.log:
-                                    print( " Train {}: Lost these elections".format(self.id) )
+                                    print( " \033[94mTrain {}:\033[0m Lost these elections".format(self.id) )
 
             # Case 3: Election answer
             elif currentMessage['type'] == MsgTypes.elec_ack.value:
@@ -180,7 +180,7 @@ class Train:
                         self.unprocessedReqs = {}
 
                         if self.log:
-                            print( " Train {}: Silenced in these elections. Lost election.".format(self.id) )
+                            print( " \033[94mTrain {}:\033[0m Silenced in these elections. Lost election.".format(self.id) )
 
             # Case 4: Leader Message
             elif currentMessage['type'] == MsgTypes.leader:
@@ -190,7 +190,7 @@ class Train:
                         self.unprocessedReqs = {}
 
                         if self.log:
-                            print( " Train {}: Got an election leader in these elections. Lost election.".format(self.id) )
+                            print( " \033[94mTrain {}:\033[0m Got an election leader in these elections. Lost election.".format(self.id) )
 
             # Any other type of message is certainly not destined to myself, therefore no action is taken
             else:
@@ -203,7 +203,7 @@ class Train:
                 if self.unprocessedReqs['delayT'] == self.delayWanted:
                     # Will start election
                     if self.log:
-                        print( " Train {}: Starting Election!".format(self.id) )
+                        print( " \033[94mTrain {}:\033[0m Starting Election!".format(self.id) )
 
                     self.unprocessedReqs['inElections'] = True
                     d = self.unprocessedReqs['simpleD'] + self.full_distance() # Needs to add the distance until the
@@ -219,7 +219,7 @@ class Train:
                     # self.broadcast_leader(self.id) # Inform others who's answering the request
 
                     if self.log:
-                        print( " Train {}: Finishing election! I've won!".format(self.id) )
+                        print( " \033[94mTrain {}:\033[0m Finishing election! I've won!".format(self.id) )
 
                     self.path += self.unprocessedReqs['route'] # Adds route to desired path
                     # In this case I'd need to convert into coordinates
@@ -286,7 +286,7 @@ class Train:
         """
 
         if self.log:
-            print(" Train {}: Reading map file ({})".format(self.id, mapPath))
+            print(" \033[94mTrain {}:\033[0m Reading map file ({})".format(self.id, mapPath))
 
         # Getting CSV file names
         graphInfo = "%s/Sheet 1-Graph Info.csv" % mapPath
@@ -295,7 +295,7 @@ class Train:
 
         # Reading Graph Info table
         if self.log:
-            print( " Train {}: Going over graph info".format(self.id) )
+            print( " \033[94mTrain {}:\033[0m Going over graph info".format(self.id) )
 
         with open(graphInfo) as csv_file:
             csv_reader = csv.reader(csv_file, delimiter=';')
@@ -312,11 +312,11 @@ class Train:
                 line_count += 1
 
             if self.log:
-                print( " Train {}:  - Map contains {} vertices and {} edges".format(self.id, self.nVertices, self.nEdges) )
+                print( " \033[94mTrain {}:\033[0m  - Map contains {} vertices and {} edges".format(self.id, self.nVertices, self.nEdges) )
 
         # Reading Vertices Positions table
         if self.log:
-            print( " Train {}: Going over vertices positions".format(self.id) )
+            print( " \033[94mTrain {}:\033[0m Going over vertices positions".format(self.id) )
 
         self.vert_names = []
         self.vert_pos = []
@@ -339,11 +339,11 @@ class Train:
                 raise Exception("Wrong input file format. The number of vertices given doesn't match the number of vertices specified")
 
             if self.log:
-                print(" Train {}: - Got positions of the {} vertices".format(self.id, self.nVertices))
+                print(" \033[94mTrain {}:\033[0m - Got positions of the {} vertices".format(self.id, self.nVertices))
 
         # Reading Connection Matrix table
         if self.log:
-            print( " Train {}: Going over graph edges".format(self.id) )
+            print( " \033[94mTrain {}:\033[0m Going over graph edges".format(self.id) )
 
         self.edges = np.ndarray(shape=(self.nVertices,self.nVertices), dtype=float)
         self.edges.fill(-1)
@@ -363,7 +363,7 @@ class Train:
                 raise Exception("Wrong input file format. Number of edges given doesn't match the specified number")
 
             if self.log:
-                print(" Train {}: - Read over {} edges in graph".format(self.id, edge_count))
+                print(" \033[94mTrain {}:\033[0m - Read over {} edges in graph".format(self.id, edge_count))
     # -----------------------------------------------------------------------------------------
 
     def calculate_route(self, init, fin):
@@ -447,7 +447,7 @@ class Train:
                 b = min(v1, v2)
 
                 if not self.semaphore[ (a, b) ]:
-                    print( " Train {}: Road occupied. Try again later".format(self.id) )
+                    print( " \033[94mTrain {}:\033[0m Road occupied. Try again later".format(self.id) )
                     return
 
                 else:
@@ -478,12 +478,12 @@ class Train:
         if (self.trainMode == TrainModes.busy):
             im.set_cmap('nipy_spectral')
 
-        trans_data = mtransforms.Affine2D().scale(2, 2).rotate_deg(rotation).translate(self.pos[0], self.pos[1]) + ax.transData
+        trans_data = mtransforms.Affine2D().scale(2, 2).translate(-1, 0).rotate_deg(rotation).translate(self.pos[0], self.pos[1]) + ax.transData
         im.set_transform(trans_data)
         x1, x2, y1, y2 = im.get_extent()
-        ax.plot(x1, y1, transform=trans_data, zorder=5)
+        ax.plot(x1, y1, transform=trans_data, zorder=10)
     # -----------------------------------------------------------------------------------------
 
     def kill(self):
-        print( " Train {}: Command for Killing Me".format(self.id) )
+        print( " \033[94mTrain {}:\033[0m Command for Killing Me".format(self.id) )
         del self

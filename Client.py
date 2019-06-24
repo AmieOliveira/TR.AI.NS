@@ -83,7 +83,7 @@ class Client:
 
         if currentMessage:
             if self.log:
-                print("  Client {}: Received message '{}'".format(self.id, currentMessage.nType.name))
+                print("  \033[92mClient {}:\033[0m Received message '{}'".format(self.id, currentMessage.nType.name))
 
             # NOTE: Already checked that messages are for me in receive_message
 
@@ -91,7 +91,7 @@ class Client:
             if currentMessage['type'] == MsgTypes.req_ack.value:
                 self.reqAnswer = True
                 if self.log:
-                    print("  Client {}: Have .".format(self.id))
+                    print("  \033[92mClient {}:\033[0m Have .".format(self.id))
                 # There is at least one train that will process my request
 
             # Case 2: Request accept
@@ -104,7 +104,7 @@ class Client:
         if self.mode == CliModes.login:
             if self.leaveLogin:
                 if self.log:
-                    print("  Client {}: Sending request.".format(self.id))
+                    print("  \033[92mClient {}:\033[0m Sending request.".format(self.id))
                 self.request_ride()
                 self.answerTimer = 0
                 self.reqAnswer = False
@@ -114,7 +114,7 @@ class Client:
             if not self.reqAnswer:
                 if self.answerTimer >= self.answerTimeout:
                     if self.log:
-                        print( "  Client {}: Timeout. Resending request.".format(self.id) )
+                        print( "  \033[92mClient {}:\033[0m Timeout. Resending request.".format(self.id) )
 
                     self.request_ride()
                     self.answerTimer = 0
@@ -157,14 +157,14 @@ class Client:
             with cbook.get_sample_data(self.img) as image_file:
                 image = plt.imread(image_file)
 
-            im = ax.imshow(image, extent=[0, 1, 0, 1], clip_on=True)
+            im = ax.imshow(image, extent=[0, 1, 0, 1], clip_on=False, zorder=7)
 
-            trans_data = mtransforms.Affine2D().scale(-2, 2).translate(self.pos[0], self.pos[1]) + ax.transData
+            trans_data = mtransforms.Affine2D().scale(-1.5, 1.5).translate(self.pos[0] - .1, self.pos[1] + .1) + ax.transData
             im.set_transform(trans_data)
             x1, x2, y1, y2 = im.get_extent()
             ax.plot(x1, y1, transform=trans_data, zorder=7)
     # ---------------------------------------------------
 
     def kill(self):
-        print( "  Client {}: Command for Killing Me".format(self.id) )
+        print( "  \033[92mClient {}:\033[0m Command for Killing Me".format(self.id) )
         del self
