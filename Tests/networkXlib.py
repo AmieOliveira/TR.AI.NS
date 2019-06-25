@@ -1,7 +1,8 @@
-#!/usr/local/bin/python3
+#/usr/local/bin/python3
 
 import networkx as nx
 import matplotlib.pyplot as plt
+import pandas as pd 
 
 G = nx.Graph()
 e = [('a', 'b', 0.3), ('b', 'c', 0.9), ('a', 'c', 0.5), ('c', 'd', 1.2)]

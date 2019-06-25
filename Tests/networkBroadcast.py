@@ -1,4 +1,4 @@
-#!/usr/local/bin/python3
+##/usr/local/bin/python3
 
 import sys, os
 sys.path.append(os.path.join(os.path.dirname(sys.path[0])))
@@ -17,14 +17,15 @@ class Simulation:
         self.trainRange = 15
         self.clientRange = 5
 
-
-tr1 = Train(1, (-1,0), "map.txt")
-tr2 = Train(2, (2,3), "map.txt")
-tr3 = Train(3, (0,7), "map.txt")
-cl1 = Client(-1, (0,0), "map.txt")
-
 sim = Simulation()
 net = Network(sim, log=True)
+
+tr1 = Train(1, (-1,0), "mapFile",edgeAvaliability=True,network=net,log=False)
+tr2 = Train(2, (2,3), "mapFile",edgeAvaliability=True,network=net,log=False)
+tr3 = Train(3, (0,7), "mapFile",edgeAvaliability=True,network=net,log=False)
+cl1 = Client(-1, (0,0), mapFile="mapFile",network=net,log=False, destiny=(10,10))
+
+
 
 sim.devices = [tr1, cl1, tr2, tr3]
 
