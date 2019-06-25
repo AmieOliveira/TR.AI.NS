@@ -15,6 +15,7 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib.cbook as cbook
 import matplotlib.transforms as mtransforms
+import networkx as nx
 
 
 class TrainModes(Enum):
@@ -32,7 +33,7 @@ class TrainModes(Enum):
 
 
 class Train:
-    def __init__(self, ID, pos0, mapFile, edgeAvaliability, network, log=False):
+    def __init__(self, ID, pos0, mapFile, edgeAvaliability, network, graph, log=False):
         """
             Class Train contains the whole operational code for a transportation unit in
             the TR.AI.NS project.
@@ -42,7 +43,8 @@ class Train:
         :param mapFile: name of the file that contains the map information
         """
         self.id = ID
-
+        # Graph object
+        self.graph = graph
         # Network object
         self.network = network
 
@@ -366,9 +368,17 @@ class Train:
                 print(" \033[94mTrain {}:\033[0m - Read over {} edges in graph".format(self.id, edge_count))
     # -----------------------------------------------------------------------------------------
 
-    def calculate_route(self, init, fin):
-        # TODO
-        return [], 4
+    def calculate_route(self, init, fin,**kwargs):
+        """
+        Compute shortest distance between each pair of nodes in a graph.  Return a dictionary keyed on node pairs (tuples).
+        """
+        # We must be careful about the positioning that must be a graph node
+        if(len(kwargs)>0):
+            measure = kwargs[0]
+        else:
+            measure='distance'
+        distances = nx.dijkstra_path_length(self.graph, init, fin,measure)
+        return distances    
     # -----------------------------------------------------------------------------------------
 
     def full_distance(self):
