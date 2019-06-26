@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cbook as cbook
 import matplotlib.transforms as mtransforms
 import networkx as nx
+import pandas as pd
 
 
 class TrainModes(Enum):
@@ -33,7 +34,7 @@ class TrainModes(Enum):
 
 
 class Train:
-    def __init__(self, ID, pos0, mapFile, edgeAvaliability, network, graph, log=False):
+    def __init__(self, ID, pos0, mapFile, edgeAvaliability, network, log=False):
         """
             Class Train contains the whole operational code for a transportation unit in
             the TR.AI.NS project.
@@ -43,8 +44,7 @@ class Train:
         :param mapFile: name of the file that contains the map information
         """
         self.id = ID
-        # Graph object
-        self.graph = graph
+
         # Network object
         self.network = network
 
@@ -88,6 +88,8 @@ class Train:
 
         # Train gif image
         self.img = os.path.dirname(os.path.abspath(__file__)) + '/train.png'
+
+
     # -----------------------------------------------------------------------------------------
 
     def step(self):
@@ -295,6 +297,8 @@ class Train:
         vertices = "%s/Sheet 1-Vertices Positions.csv" % mapPath
         connections = "%s/Sheet 1-Connection Matrix.csv" % mapPath
 
+        self.graph = nx.Graph()
+
         # Reading Graph Info table
         if self.log:
             print( " \033[94mTrain {}:\033[0m Going over graph info".format(self.id) )
@@ -323,6 +327,7 @@ class Train:
         self.vert_names = []
         self.vert_pos = []
         self.vert_idx = {}
+        self.vert_namePos = {}
 
         # TODO: Check what dictionaries are useful to have as attributes , Map Variables
 
@@ -336,6 +341,8 @@ class Train:
                 self.vert_names += [ row[0] ]
                 self.vert_pos += [ (float(row[1]), float(row[2])) ]
                 self.vert_idx[ (float(row[1]), float(row[2])) ] = line_count
+                self.vert_namePos[ row[0] ] = [ (float(row[1]), float(row[2])) ]
+                self.graph.add_node( row[0] )
                 line_count += 1
             if line_count != self.nVertices:
                 raise Exception("Wrong input file format. The number of vertices given doesn't match the number of vertices specified")
@@ -358,6 +365,10 @@ class Train:
                 for i in range(self.nVertices):
                     if row[i] != "":
                         self.edges[line_count][i] = float(row[i])
+                        if float(row[i]) > 0:
+                            self.graph.add_edge( self.vert_names[line_count],
+                                                 self.vert_names[i],
+                                                 distance = float(row[i]) )
                         if line_count > i:
                             edge_count += 1
                 line_count += 1
@@ -366,19 +377,21 @@ class Train:
 
             if self.log:
                 print(" \033[94mTrain {}:\033[0m - Read over {} edges in graph".format(self.id, edge_count))
+
+            # node_positions = {node[0]: ( self.vert_namePos[node[0]][0] ) for node in self.graph.nodes(data=True)}
+            # plt.figure(10)
+            # nx.draw(self.graph, pos=node_positions, node_size=10, node_color='black', with_labels=True)
+            # plt.title('Graph Representation of Train Map', size=15)
+            # plt.show()
     # -----------------------------------------------------------------------------------------
 
-    def calculate_route(self, init, fin,**kwargs):
-        """
-        Compute shortest distance between each pair of nodes in a graph.  Return a dictionary keyed on node pairs (tuples).
-        """
-        # We must be careful about the positioning that must be a graph node
-        if(len(kwargs)>0):
-            measure = kwargs[0]
-        else:
-            measure='distance'
-        distances = nx.dijkstra_path_length(self.graph, init, fin,measure)
-        return distances    
+    def calculate_route(self, init, fin, measure="distance"):
+        init_temp, fin_temp, len_temp = discover_proximity_point(init,fin)
+        distances_length = nx.dijkstra_path_length(self.graph, init_temp, fin_temp, measure)
+        distances_path = nx.dijkstra_path(self.graph, init_temp, fin_temp, measure)
+        if (len_temp!=0):
+            distances_length += len_temp
+        return distances_path,distances_length
     # -----------------------------------------------------------------------------------------
 
     def full_distance(self):
@@ -497,3 +510,21 @@ class Train:
     def kill(self):
         print( " \033[94mTrain {}:\033[0m Command for Killing Me".format(self.id) )
         del self
+    
+    # -----------------------------------------------------------------------------------------
+    def discover_proximity_point(self,init=0, fin=0):
+        node_list = pd.read_csv('mapFile1//Sheet 1-Vertices Positions.csv',delimiter=";")
+        dist ={}
+        minVal = 1000
+        for index,noderow in node_list.iterrows():
+            #dist.append(distance.euclidean((int(noderow[1]),int(noderow[2])),(init,fin)))
+            value = distance.euclidean((int(noderow[1]),int(noderow[2])),(init,fin))
+            dist[(noderow[1],noderow[2])] = value
+            if(value<minVal):
+                minVal = value
+                init_temp,fin_temp = noderow[1],noderow[2]
+        print(min(dist.values()))
+        if (min(dist.values())== 0):
+            return (init,fin,0)
+        else:
+            return (init_temp,fin_temp,minVal)
