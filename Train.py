@@ -15,6 +15,7 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib.cbook as cbook
 import matplotlib.transforms as mtransforms
+import networkx as nx
 
 
 class TrainModes(Enum):
@@ -293,6 +294,8 @@ class Train:
         vertices = "%s/Sheet 1-Vertices Positions.csv" % mapPath
         connections = "%s/Sheet 1-Connection Matrix.csv" % mapPath
 
+        self.graph = nx.Graph()
+
         # Reading Graph Info table
         if self.log:
             print( " \033[94mTrain {}:\033[0m Going over graph info".format(self.id) )
@@ -321,6 +324,7 @@ class Train:
         self.vert_names = []
         self.vert_pos = []
         self.vert_idx = {}
+        self.vert_namePos = {}
 
         # TODO: Check what dictionaries are useful to have as attributes , Map Variables
 
@@ -334,6 +338,8 @@ class Train:
                 self.vert_names += [ row[0] ]
                 self.vert_pos += [ (float(row[1]), float(row[2])) ]
                 self.vert_idx[ (float(row[1]), float(row[2])) ] = line_count
+                self.vert_namePos[ row[0] ] = [ (float(row[1]), float(row[2])) ]
+                self.graph.add_node( row[0] )
                 line_count += 1
             if line_count != self.nVertices:
                 raise Exception("Wrong input file format. The number of vertices given doesn't match the number of vertices specified")
@@ -356,6 +362,10 @@ class Train:
                 for i in range(self.nVertices):
                     if row[i] != "":
                         self.edges[line_count][i] = float(row[i])
+                        if float(row[i]) > 0:
+                            self.graph.add_edge( self.vert_names[line_count],
+                                                 self.vert_names[i],
+                                                 distance = float(row[i]) )
                         if line_count > i:
                             edge_count += 1
                 line_count += 1
@@ -364,6 +374,12 @@ class Train:
 
             if self.log:
                 print(" \033[94mTrain {}:\033[0m - Read over {} edges in graph".format(self.id, edge_count))
+
+                # node_positions = {node[0]: ( self.vert_namePos[node[0]][0] ) for node in self.graph.nodes(data=True)}
+                # plt.figure(10)
+                # nx.draw(self.graph, pos=node_positions, node_size=10, node_color='black', with_labels=True)
+                # plt.title('Graph Representation of Train Map', size=15)
+                # plt.show()
     # -----------------------------------------------------------------------------------------
 
     def calculate_route(self, init, fin):
