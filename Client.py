@@ -71,6 +71,7 @@ class Client:
             This method executes the whole operation of the client during a logic step.
             Should be looped to have it functioning.
         """
+
         # Updating timers
         if self.mode == CliModes.request:
             self.answerTimer += 1
@@ -79,11 +80,9 @@ class Client:
         currentMessage = None
         if len(self.messageBuffer) > 0:
             # In this case there are messages to be interpreted
-            currentMessage = self.messageBuffer.pop()
+            currentMessage = self.messageBuffer.pop(0)
 
         if currentMessage:
-            if self.log:
-                print("  \033[92mClient {}:\033[0m Received message '{}'".format(self.id, currentMessage.nType.name))
 
             # NOTE: Already checked that messages are for me in receive_message
 
@@ -91,13 +90,28 @@ class Client:
             if currentMessage['type'] == MsgTypes.req_ack.value:
                 self.reqAnswer = True
                 if self.log:
-                    print("  \033[92mClient {}:\033[0m Have .".format(self.id))
+                    print("  \033[92mClient {}:\033[0m There are trains processing my request".format(self.id))
                 # There is at least one train that will process my request
 
             # Case 2: Request accept
             elif currentMessage['type'] == MsgTypes.req_ans.value:
                 self.mode = CliModes.wait
                 self.train = currentMessage['sender']
+                if self.log:
+                    print("  \033[92mClient {}:\033[0m Will be picked up by train {}".format(self.id, self.train))
+
+            # Case 3: Train arrival
+            elif currentMessage['type'] == MsgTypes.pickup.value:
+                self.mode = CliModes.moving
+                if self.log:
+                    print("  \033[92mClient {}:\033[0m Boarding train".format(self.id))
+
+            # Case 4: Destination arrival
+            elif currentMessage['type'] == MsgTypes.dropoff.value:
+                self.mode = CliModes.dropoff
+                self.pos = (self.destiny[0], self.destiny[1])
+                if self.log:
+                    print("  \033[92mClient {}:\033[0m Getting of train".format(self.id))
         # -----------------------------------
 
         # Updating client mode of operation
@@ -134,7 +148,10 @@ class Client:
         msg = Message()
         msg.decode(msgStr)
 
-        if msg.nType == MsgTypes.req_ans or msg.nType == MsgTypes.req_ack:
+        if msg['sender'] == self.id:
+            return
+
+        if msg.nType in [MsgTypes.req_ans, MsgTypes.req_ack, MsgTypes.pickup, MsgTypes.dropoff]:
             if msg['receiver'] == self.id:
                 self.messageBuffer += [msg]
     # ---------------------------------------------------
@@ -143,7 +160,7 @@ class Client:
         """
             Send request message to the trains
         """
-        msg_sent = Message(msgType = MsgTypes.req, pickup = self.pos, dropoff=self.destiny)
+        msg_sent = Message(msgType = MsgTypes.req, sender=self.id, pickup = self.pos, dropoff=self.destiny)
         self.network.broadcast(msg_sent.encode(), self)
     # ---------------------------------------------------
 

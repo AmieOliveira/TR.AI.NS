@@ -148,7 +148,7 @@ if __name__ == "__main__":
     pos = vert_pos[ stoppingPoints["Point 1"] ]
     dest = vert_pos[ stoppingPoints["Point 3"] ]
     cl = Client(.5, pos, dest, mapPath, net, log=True)
-    sim.devices = [cl] + sim.devices
+    sim.devices += [cl]
 
     # ------------------------------
     # Looping simulation
@@ -202,11 +202,11 @@ if __name__ == "__main__":
 
         plt.show(block=False)
         fig.canvas.flush_events()
-        time.sleep(.5)
+        time.sleep(.1)
 
 
         simTime += 1
-        if simTime >= 5:
+        if simTime >= 150:
             finished = True
 
     plt.show()

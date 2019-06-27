@@ -31,6 +31,8 @@ class MsgTypes(Enum):
     elec = 3
     elec_ack = 4
     leader = 5
+    pickup = 7
+    dropoff = 8
     # canc -> give up on race
     # map_updt -> update map
 
@@ -54,21 +56,33 @@ class Message:
         if self.nType == MsgTypes.req:               # Client is requesting pickup
             self.msgDict["pickUp"] = kwargs["pickup"]
             self.msgDict["dropOff"] = kwargs["dropoff"]
+
         elif self.nType == MsgTypes.req_ack:           # Train will process request
             self.msgDict["receiver"] = kwargs["receiver"]
+
         elif self.nType == MsgTypes.req_ans:           # Train has accepted client request
             self.msgDict["receiver"] = kwargs["receiver"]
+
         elif self.nType == MsgTypes.elec:              # Leader election message
             self.msgDict["distance"] = kwargs["distance"]
             self.msgDict["clientID"] = kwargs["client"]
             # self.msgDict["starter"] = kwargs["starter"]
+
         elif self.nType == MsgTypes.elec_ack:          # Acknowledge message sender.
-                                            # Sent if the sender has the shorter path.
+                                            # (Sent if the sender has the shorter path.)
             self.msgDict["clientID"] = kwargs["client"]
             # self.msgDict["starter"] = kwargs["starter"]
             self.msgDict["receiver"] = kwargs["receiver"]
+
         elif self.nType == MsgTypes.leader:            # Leader chosen to answer request
             self.msgDict["clientID"] = kwargs["client"]
+
+        elif self.nType == MsgTypes.pickup:             # Sent to let client know train has arrived
+            self.msgDict["receiver"] = kwargs["receiver"]
+
+        elif self.nType == MsgTypes.dropoff:             # Sent to let client know its destination has arrived
+            self.msgDict["receiver"] = kwargs["receiver"]
+
 
     def __getitem__(self, key):
         """

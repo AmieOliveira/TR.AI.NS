@@ -55,12 +55,16 @@ class Train:
 
         self.currentEdge = None
 
-        self.vStep = .1                  # approximate s/step ratio
+        self.vStep = .2                  # approximate s/step ratio
         self.v = [0, 0]                      # train speed in m/s
-        # Quando evoluir adiconar aceleração
+            # Quando evoluir adiconar aceleração
 
         self.vMax = 6                   # Maximum train speed in m/s
         #self.aMax = 1                   # Maximum train acceleration in m/s^2
+
+        self.okToMove = True
+        self.waitForClientDelay = 0
+        self.clientWaitingTime = 10
 
         # Messaging attributes
         self.messageBuffer = []
@@ -83,10 +87,12 @@ class Train:
                                         # Requests handled in dictionaries. ONLY ONE ALLOWED PER TURN
         self.outOfElec = None           # There has been a client request and this is not the elected train
         self.delayWanted = randint(1,11)
-        self.maximumMsgWait = 100
+        self.maximumMsgWait = 15
 
         # Train gif image
         self.img = os.path.dirname(os.path.abspath(__file__)) + '/train.png'
+
+
     # -----------------------------------------------------------------------------------------
 
     def step(self):
@@ -100,12 +106,16 @@ class Train:
                 self.unprocessedReqs['delayT'] += 1
             else:
                 self.unprocessedReqs['msgWait'] += 1
+        if (self.trainMode == TrainModes.accept) or (self.trainMode == TrainModes.busy):
+            if not self.okToMove:
+                self.waitForClientDelay += 1
+                print( self.waitForClientDelay )
 
         # Reading and interpreting messages in the message buffer
         currentMessage = None
         if len(self.messageBuffer) > 0:
             # In this case there are messages to be interpreted
-            currentMessage = self.messageBuffer.pop()
+            currentMessage = self.messageBuffer.pop(0)
 
         if currentMessage:
             if self.log:
@@ -125,9 +135,11 @@ class Train:
                         route, d = None, None
                         # Calculate route
                         if self.trainMode == TrainModes.wait:
+                            # In this case I am not moving , so I am in thory waiting at a vertice
                             route, d = self.calculate_route( self.pos, currentMessage['pickUp'] )
                         elif (self.trainMode == TrainModes.accept) or (self.trainMode == TrainModes.busy):
                             route, d = self.calculate_route( self.path[-1], currentMessage['pickUp'] )
+
                         self.unprocessedReqs = dict(ID=clientID, pickup=currentMessage['pickUp'],
                                                     dropoff=currentMessage['dropOff'], delayT=0,
                                                     inElections=False, simpleD=d, route=route, msgWait=0)
@@ -149,7 +161,8 @@ class Train:
 
                             dTot = self.unprocessedReqs['simpleD'] + self.full_distance()
 
-                            if dTot < currentMessage['distance']:
+                            if (dTot < currentMessage['distance']) or \
+                                    (dTot == currentMessage['distance'] and self.id > currentMessage['sender']):
                                 # This train is the leader himself
                                 self.silence_train(currentMessage['sender'])
                                 if not self.unprocessedReqs['inElections']:
@@ -161,8 +174,6 @@ class Train:
                                 if self.log:
                                     print( " \033[94mTrain {}:\033[0m Win this elections round".format(self.id) )
 
-                            # TODO: Solve the case where they both have the same distance
-                            # Desmpate pelo id???
                             else:
                                 # Finishes current election process
                                 self.outOfElec = self.unprocessedReqs['ID']
@@ -223,6 +234,14 @@ class Train:
                         print( " \033[94mTrain {}:\033[0m Finishing election! I've won!".format(self.id) )
 
                     self.path += self.unprocessedReqs['route'] # Adds route to desired path
+                    if self.unprocessedReqs['simpleD'] == 0 and self.trainMode == TrainModes.wait:
+                        self.okToMove = False
+                        self.waitForClientDelay = 0
+
+                    route, d = self.calculate_route(self.unprocessedReqs['pickup'], self.unprocessedReqs['dropoff'])
+
+                    self.path += route[1:]
+
                     # In this case I'd need to convert into coordinates
                     self.client += [(self.unprocessedReqs['ID'], self.unprocessedReqs['pickup'], self.unprocessedReqs['dropoff'])]
                     self.client_accept()
@@ -230,22 +249,31 @@ class Train:
 
                     if self.trainMode == TrainModes.wait:
                         self.trainMode = TrainModes.accept
-                        self.currentGoal = self.client[0][1] # pickup
+                        self.currentGoal = tuple(self.client[0][1]) # pickup
         # ------------------------------------------
 
         # Moving train and handling new position
+        if (self.trainMode == TrainModes.accept) and (not self.okToMove):
+            if self.waitForClientDelay >= self.clientWaitingTime:
+                self.okToMove = True
+        if (self.trainMode == TrainModes.busy) and (not self.okToMove):
+            if self.waitForClientDelay >= self.clientWaitingTime:
+                self.okToMove = True
+
         self.move()
 
         if self.pos == self.currentGoal:  # Reached current destination
             if self.trainMode == TrainModes.accept:
+                self.notify_client()
+
                 # Client boarding train
                 self.trainMode = TrainModes.busy
-                self.currentGoal = self.client[0][2] # dropoff
-                # TODO: Notify client
+                self.currentGoal = tuple(self.client[0][2]) # dropoff
 
             elif self.trainMode == TrainModes.busy:
                 # Client leaving the train
-                # TODO: Notify client
+                self.notify_client()
+
                 self.client.pop() # taking out client from list
                 if len(self.client) > 0:
                     self.trainMode = TrainModes.accept
@@ -266,12 +294,13 @@ class Train:
         msg = Message()
         msg.decode(msgStr)
 
-        if msg.nType == MsgTypes.req:
-            self.messageBuffer += [msg]
+        if msg['sender'] == self.id:
+            return
 
-        elif msg.nType == MsgTypes.elec:
-            # if 'ID' in self.unprocessedReqs.keys():
-            #     if msg['clientID'] == self.unprocessedReqs['ID']:
+        if msg.nType in [MsgTypes.req_ack, MsgTypes.req_ans]:
+            return
+
+        elif msg.nType in [MsgTypes.req, MsgTypes.elec, MsgTypes.leader]:
             self.messageBuffer += [msg]
 
         else:
@@ -338,7 +367,7 @@ class Train:
                 self.vert_names += [ row[0] ]
                 self.vert_pos += [ (float(row[1]), float(row[2])) ]
                 self.vert_idx[ (float(row[1]), float(row[2])) ] = line_count
-                self.vert_namePos[ row[0] ] = [ (float(row[1]), float(row[2])) ]
+                self.vert_namePos[ row[0] ] = (float(row[1]), float(row[2]))
                 self.graph.add_node( row[0] )
                 line_count += 1
             if line_count != self.nVertices:
@@ -375,25 +404,61 @@ class Train:
             if self.log:
                 print(" \033[94mTrain {}:\033[0m - Read over {} edges in graph".format(self.id, edge_count))
 
-                # node_positions = {node[0]: ( self.vert_namePos[node[0]][0] ) for node in self.graph.nodes(data=True)}
+                # node_positions = {node[0]: ( self.vert_namePos[node[0]] ) for node in self.graph.nodes(data=True)}
                 # plt.figure(10)
                 # nx.draw(self.graph, pos=node_positions, node_size=10, node_color='black', with_labels=True)
                 # plt.title('Graph Representation of Train Map', size=15)
                 # plt.show()
     # -----------------------------------------------------------------------------------------
 
-    def calculate_route(self, init, fin):
-        # TODO
-        return [], 4
+    def calculate_route(self, init, fin, measure="distance"):
+        """
+            Calculates the route from 'init' to 'fin'.
+        :param init: Initial point. Should be the position of a vertice on the map
+        :param fin: Final point. Should be the position of a vertice on the map
+        :param measure: Type of "shortness measurament". It is assumed to be the distance between
+            pints, but could be the edge weight, for example
+        :return: Returns first the path, followed by the total distance between two points
+        """
+
+        len_temp = 0
+        if not init in self.vert_pos:
+            init_node, len_temp = self.discover_proximity_point(init)
+
+        if type(init) == list:
+            init = (init[0], init[1])
+        if type(fin) == list:
+            fin = (fin[0], fin[1])
+
+        if init == fin:
+            return [], 0
+
+        init_node = self.vert_names[ self.vert_idx[ init ] ]
+        fin_node = self.vert_names[ self.vert_idx[ fin ] ]
+
+        distances_length = nx.dijkstra_path_length(self.graph, init_node, fin_node, measure)
+        distances_path = nx.dijkstra_path(self.graph, init_node, fin_node, measure)
+
+        path = []
+        for vert in distances_path:
+            path += [ self.vert_namePos[vert] ]
+
+        if len_temp != 0:
+            distances_length += len_temp
+
+        return path, distances_length
     # -----------------------------------------------------------------------------------------
 
     def full_distance(self):
-        sum = 0
+        """
+            Calculates the full distance to be traveled in path schedule
+        """
+        totSum = 0
         if self.path != []:
             for index in range(len(self.path)-1):
-                sum += distance.euclidean(self.path[index],self.path[index+1])
+                totSum += distance.euclidean(self.path[index],self.path[index+1])
                 continue
-        return sum
+        return totSum
     # -----------------------------------------------------------------------------------------
 
     def acknowlege_request(self):
@@ -415,37 +480,73 @@ class Train:
     # -----------------------------------------------------------------------------------------
 
     def silence_train(self, nodeId):
+        """
+            Sends acknowledgement message to train with higher distance to client, thus
+            silencing it for election purposes
+        :param nodeId: ID of the train that is the desired message receipient
+        """
         temp_nodeID = nodeId
         msg_sent = Message(msgType = MsgTypes.elec_ack, sender = self.id, receiver = temp_nodeID , client = self.unprocessedReqs['ID'])
         self.network.broadcast(msg_sent.encode(), self)
     # -----------------------------------------------------------------------------------------
 
     def client_accept(self): # Envia mensagem de líder para todos os trens e request answer para o cliente.
+        """
+            Method to encapsule messages send when a client is accepted
+            (train has won client election and will pick-up client)
+        """
+        if self.log:
+            print(" \033[94mTrain {}:\033[0m Sending leader message to other trains and answering client request".format(self.id))
+
         msg_sent_trains = Message(msgType = MsgTypes.leader, sender = self.id, client = self.unprocessedReqs['ID'])
         self.network.broadcast(msg_sent_trains.encode(), self)
         msg_sent_client = Message(msgType = MsgTypes.req_ans, sender = self.id, receiver = self.unprocessedReqs['ID'])
         self.network.broadcast(msg_sent_client.encode(), self)
     # -----------------------------------------------------------------------------------------
 
+    def notify_client(self):
+        """
+            Notifies client of train arrival at the pick up or drop off location
+        """
+        mType = None
+        if self.trainMode == TrainModes.accept:
+            mType = MsgTypes.pickup
+            if self.log:
+                print(" \033[94mTrain {}:\033[0m Reached client. Sending message to notify him".format(self.id))
+
+        elif self.trainMode == TrainModes.busy:
+            mType = MsgTypes.dropoff
+            if self.log:
+                print(" \033[94mTrain {}:\033[0m Reached destination. Sending message to notify client".format(self.id))
+
+        msg = Message(msgType=mType, sender=self.id, receiver=self.client[0][0])
+        self.network.broadcast(msg.encode(), self)
+    # -----------------------------------------------------------------------------------------
+
     def move(self):
+        """
+            Moves train position across the map
+        """
         # NOTE: Train is currently traveling with constant speed throughout vertices
         # (No acceleration considered)
 
-        if len(self.path) > 0:
+        if len(self.path) > 0 and self.okToMove:
             # Fist: move train according to current speed
-            self.pos[0] += self.v[0] * self.vStep
-            self.pos[1] += self.v[1] * self.vStep
+            pos0 = self.pos[0] + self.v[0] * self.vStep
+            pos1 = self.pos[1] + self.v[1] * self.vStep
+            self.pos = (pos0, pos1)
 
             distanceToVertice = (self.path[0][0] - self.pos[0], self.path[0][1] - self.pos[1])
             if (distanceToVertice[0] * self.v[0] < 0) or (distanceToVertice[1] * self.v[1] < 0):
                 # Passed vertice! Roll back
-                self.pos = [self.path[0][0], self.path[0][1]]
+                self.pos = (self.path[0][0], self.path[0][1])
 
-            # Second: update path
+            # Update path
             if (self.pos[0] == self.path[0][0]) and (self.pos[1] == self.path[0][1]):
                 # Disocupy road
-                self.semaphore[ self.currentEdge ] = True
-                self.currentEdge = None
+                if self.currentEdge:
+                    self.semaphore[ self.currentEdge ] = True
+                    self.currentEdge = None
 
                 # Go to next speed step
                 self.path = self.path[1:]
@@ -453,6 +554,12 @@ class Train:
 
                 if self.pos == self.currentGoal:
                     # Will pick up or drop off a client
+                    if self.okToMove:
+                        if self.log:
+                            print(" \033[94mTrain {}:\033[0m Reached goal {}".format(self.id, self.pos))
+
+                        self.okToMove = False
+                        self.waitForClientDelay = 0
                     return
 
             if self.v == [0, 0]:
@@ -462,6 +569,7 @@ class Train:
                 a = max(v1, v2)
                 b = min(v1, v2)
 
+                # FIXME: When there are two sequentoal vertices in path there are equal we get a bug here. But this was not supposed to happen
                 if not self.semaphore[ (a, b) ]:
                     print( " \033[94mTrain {}:\033[0m Road occupied. Try again later".format(self.id) )
                     return
@@ -489,15 +597,32 @@ class Train:
         with cbook.get_sample_data(self.img) as image_file:
             image = plt.imread(image_file)
 
-        im = ax.imshow(image, extent=[0, 1, 0, 1], clip_on=True)
-
-        if (self.trainMode == TrainModes.busy):
-            im.set_cmap('nipy_spectral')
+        if self.trainMode == TrainModes.busy:
+            im = ax.imshow(image[:, :, 0], extent=[0, 1, 0, 1], clip_on=True)
+        else:
+            im = ax.imshow(image, extent=[0, 1, 0, 1], clip_on=True)
 
         trans_data = mtransforms.Affine2D().scale(2, 2).translate(-1, 0).rotate_deg(rotation).translate(self.pos[0], self.pos[1]) + ax.transData
         im.set_transform(trans_data)
+
         x1, x2, y1, y2 = im.get_extent()
         ax.plot(x1, y1, transform=trans_data, zorder=10)
+    # -----------------------------------------------------------------------------------------
+
+    def discover_proximity_point(self, point):
+        dist = {}
+        minVal = 10000000
+        point_temp = point
+
+        for vertice in self.vert_pos:
+            value = distance.euclidean( vertice, point )
+            dist[ vertice ] = value
+
+            if (value < minVal):
+                minVal = value
+                point_temp = vertice
+
+        return point_temp, minVal
     # -----------------------------------------------------------------------------------------
 
     def kill(self):
