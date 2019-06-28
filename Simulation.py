@@ -6,7 +6,7 @@
 # -----------------------------
 
 from Train import Train
-from Client import Client
+from Client import Client, CliModes
 from Network import Network
 
 
@@ -28,6 +28,8 @@ required.add_argument( '-m', '--map-file', type=str, required=True,
 modifiers = parser.add_argument_group('Simulation modifier Arguments')
 modifiers.add_argument( '-nT', '--number-of-trains', type=int, default=3,
                         help='Number of trains the simulation should initially contain' )
+modifiers.add_argument( '-fC', '--frequency-of-client', type=int, default=25,
+                        help='Frequency of clients appearance' )
 
 
 args = parser.parse_args()
@@ -75,9 +77,9 @@ if __name__ == "__main__":
     # Reading Vertices Positions table
     print("\tGoing over vertices positions")
 
-    vert_names = []
     vert_pos = []
     stoppingPoints = {}
+    stoppingPointsPos = []
 
     with open(vertices) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=';')
@@ -86,10 +88,10 @@ if __name__ == "__main__":
             if line_count == -1:
                 line_count += 1
                 continue
-            vert_names += [row[0]]
             vert_pos += [(float(row[1]), float(row[2]))]
             if row[0][0] != "_":
                 stoppingPoints[row[0]] = line_count
+                stoppingPointsPos += [(float(row[1]), float(row[2]))]
             line_count += 1
         if line_count != nVertices:
             raise Exception("Wrong input file format. The number of vertices given doesn't match the number of vertices specified")
@@ -145,10 +147,26 @@ if __name__ == "__main__":
 
     # ------------------------------
     # Creating initial client object
-    pos = vert_pos[ stoppingPoints["Point 1"] ]
-    dest = vert_pos[ stoppingPoints["Point 3"] ]
-    cl = Client(.5, pos, dest, mapPath, net, log=True)
+    nClients = 0
+
+    currCli = 0.5
+    clientList = []
+
+    init = randint(0, len(stoppingPointsPos) - 1)
+    fin = randint(0, len(stoppingPointsPos) - 1)
+    if fin == init:
+        fin += 1
+        if fin == len(stoppingPointsPos):
+            fin = 0
+
+    pos = stoppingPointsPos[ init ]
+    dest = stoppingPointsPos[ fin ]
+
+    cl = Client(currCli, pos, dest, mapPath, net, log=True)
     sim.devices += [cl]
+
+    clientList += [cl]
+    outingClients = {}
 
     # ------------------------------
     # Looping simulation
@@ -163,6 +181,24 @@ if __name__ == "__main__":
 
     while not finished:
         print( "Simulation counter: {}".format(simTime) )
+
+        r = randint(1, 100)
+        if r % args.frequency_of_client == 0:
+            currCli += 1
+
+            init = randint(0, len(stoppingPointsPos) - 1)
+            fin = randint(0, len(stoppingPointsPos) - 1)
+            if fin == init:
+                fin += 1
+                if fin == len(stoppingPointsPos):
+                    fin = 0
+
+            pos = stoppingPointsPos[init]
+            dest = stoppingPointsPos[fin]
+
+            cl = Client(currCli, pos, dest, mapPath, net, log=True)
+            sim.devices += [cl]
+            clientList += [cl]
 
         # Run all devices
         for device in sim.devices:
@@ -204,9 +240,28 @@ if __name__ == "__main__":
         fig.canvas.flush_events()
         time.sleep(.1)
 
+        # Remove clients from list
+        for client in clientList:
+            if client.mode == CliModes.dropoff:
+                if client not in outingClients.keys():
+                    outingClients[client] = 0
+                else:
+                    outingClients[client] += 1
+
+                if outingClients[client] >= 10:
+                    # Removing client from simulation
+                    sim.devices.remove(client)
+                    clientList.remove(client)
+
+                    client.kill()
+                    nClients += 1
+
 
         simTime += 1
-        if simTime >= 150:
+        #if simTime >= 150:
+        #    finished = True
+
+        if nClients >= 10:
             finished = True
 
     plt.show()

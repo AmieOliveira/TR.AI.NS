@@ -64,7 +64,7 @@ class Train:
 
         self.okToMove = True
         self.waitForClientDelay = 0
-        self.clientWaitingTime = 10
+        self.clientWaitingTime = 5
 
         # Messaging attributes
         self.messageBuffer = []
@@ -109,7 +109,6 @@ class Train:
         if (self.trainMode == TrainModes.accept) or (self.trainMode == TrainModes.busy):
             if not self.okToMove:
                 self.waitForClientDelay += 1
-                print( self.waitForClientDelay )
 
         # Reading and interpreting messages in the message buffer
         currentMessage = None
@@ -138,7 +137,15 @@ class Train:
                             # In this case I am not moving , so I am in thory waiting at a vertice
                             route, d = self.calculate_route( self.pos, currentMessage['pickUp'] )
                         elif (self.trainMode == TrainModes.accept) or (self.trainMode == TrainModes.busy):
+                            # FIXME: IndexError: list index out of range
+                            # How can path be empty if train is still in those modes? There should be a '-1' index always
+                            if len(self.path) == 0:
+                                print("\033[91mERROR! PATH SHOULDN'T BE NULL!!\033[0m")
+                                print(f"Train: {self.id}. Mode: {self.trainMode}")
+                                print(self.path, self.client)
+                                print(self.unprocessedReqs)
                             route, d = self.calculate_route( self.path[-1], currentMessage['pickUp'] )
+                            #route = route[1:]
 
                         self.unprocessedReqs = dict(ID=clientID, pickup=currentMessage['pickUp'],
                                                     dropoff=currentMessage['dropOff'], delayT=0,
@@ -283,7 +290,7 @@ class Train:
                     self.trainMode = TrainModes.wait
 
             elif self.trainMode == TrainModes.outOfOrder:
-                self.kill()
+                self.kill()         # TODO: Check this. Don't know if this is the best usage
     # -----------------------------------------------------------------------------------------
 
     def receive_message(self, msgStr):
@@ -530,7 +537,15 @@ class Train:
         # NOTE: Train is currently traveling with constant speed throughout vertices
         # (No acceleration considered)
 
+        # FIXME: Sometimes path acquires two consecutive vertices that are the same. This bugs the system
+        #   Need to find out why this happens and how this happens to fix it
+
         if len(self.path) > 0 and self.okToMove:
+
+            if len(self.path) >= 2:
+                if self.path[0] == self.path[1]:
+                    print(f"\033[91mERROR OCCURED!!!\033[0m Path has consecutive vertices with same value ({self.path[:2]})")
+
             # Fist: move train according to current speed
             pos0 = self.pos[0] + self.v[0] * self.vStep
             pos1 = self.pos[1] + self.v[1] * self.vStep
@@ -560,6 +575,9 @@ class Train:
 
                         self.okToMove = False
                         self.waitForClientDelay = 0
+                    return
+
+                if not self.path:
                     return
 
             if self.v == [0, 0]:

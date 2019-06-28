@@ -31,6 +31,8 @@ class CliModes(Enum):
 
 
 class Client:
+    #TODO: Add
+
     def __init__(self, ID, pos0, destiny, mapFile, network, log=False):
         self.id = ID
         if int(self.id) == self.id:
@@ -60,10 +62,13 @@ class Client:
         self.leaveLogin = True
         self.reqAnswer = False
         self.answerTimer = 0
-        self.answerTimeout = 100
+        self.answerTimeout = 10
 
         # Train that accepted me
         self.train = None
+
+        if self.log:
+            print("  \033[92mClient {}:\033[0m Created client with dentination {}".format(self.id, self.destiny))
     # ---------------------------------------------------
 
     def step(self):
@@ -133,11 +138,6 @@ class Client:
                     self.request_ride()
                     self.answerTimer = 0
                     self.reqAnswer = False
-
-        # TODO: Check if there are other modes that require notice
-        #elif self.mode == CliModes
-
-        # TODO: Check...
     # ---------------------------------------------------
 
     def receive_message(self, msgStr):
@@ -176,7 +176,12 @@ class Client:
 
             im = ax.imshow(image, extent=[0, 1, 0, 1], clip_on=False, zorder=7)
 
-            trans_data = mtransforms.Affine2D().scale(-1.5, 1.5).translate(self.pos[0] - .1, self.pos[1] + .1) + ax.transData
+            multiplier = 1
+            if self.mode == CliModes.dropoff:
+                multiplier = -1
+
+            trans_data = mtransforms.Affine2D().scale(-1.5 * multiplier, 1.5).\
+                                         translate(self.pos[0] - self.id * 0.1 * multiplier, self.pos[1] + .1) + ax.transData
             im.set_transform(trans_data)
             x1, x2, y1, y2 = im.get_extent()
             ax.plot(x1, y1, transform=trans_data, zorder=7)
