@@ -75,7 +75,7 @@ class Train:
         self.semaphore = edgeAvaliability
 
         # Operational attributes    (related to the paths being and to be taken)
-        self.trainMode = TrainModes.wait        # Current mode of operation of the train
+        self.mode = TrainModes.wait        # Current mode of operation of the train
 
         self.currentGoal = None
         self.client = []                # List of pickup and dropOff locations for the next clients, with the client ID
@@ -107,7 +107,7 @@ class Train:
                 self.unprocessedReqs['delayT'] += 1
             else:
                 self.unprocessedReqs['msgWait'] += 1
-        if (self.trainMode == TrainModes.accept) or (self.trainMode == TrainModes.busy):
+        if (self.mode == TrainModes.accept) or (self.mode == TrainModes.busy):
             if not self.okToMove:
                 self.waitForClientDelay += 1
 
@@ -125,7 +125,7 @@ class Train:
             # Case 1: Service request from client
             if currentMessage['type'] == MsgTypes.req.value:
 
-                if self.trainMode != TrainModes.outOfOrder: # Checks if train can accept
+                if self.mode != TrainModes.outOfOrder: # Checks if train can accept
                     if not ('ID' in self.unprocessedReqs.keys()): # Checks if there are current processes ongoing
                         clientID = currentMessage['sender']
 
@@ -134,15 +134,15 @@ class Train:
 
                         route, d = None, None
                         # Calculate route
-                        if self.trainMode == TrainModes.wait:
+                        if self.mode == TrainModes.wait:
                             # In this case I am not moving , so I am in thory waiting at a vertice
                             route, d = self.calculate_route( self.pos, currentMessage['pickUp'] )
-                        elif (self.trainMode == TrainModes.accept) or (self.trainMode == TrainModes.busy):
+                        elif (self.mode == TrainModes.accept) or (self.mode == TrainModes.busy):
                             # FIXME: IndexError: list index out of range
                             # How can path be empty if train is still in those modes? There should be a '-1' index always
                             if len(self.path) == 0:
                                 print("\033[91mERROR! PATH SHOULDN'T BE NULL!!\033[0m")
-                                print(f"Train: {self.id}. Mode: {self.trainMode}")
+                                print(f"Train: {self.id}. Mode: {self.mode}")
                                 print(self.path, self.client)
                                 print(self.unprocessedReqs)
                             route, d = self.calculate_route( self.path[-1], currentMessage['pickUp'] )
@@ -158,7 +158,7 @@ class Train:
             # Case 2: Election started
             elif currentMessage['type'] == MsgTypes.elec.value:
 
-                if not self.trainMode == TrainModes.outOfOrder:  # Checks if train can accept
+                if not self.mode == TrainModes.outOfOrder:  # Checks if train can accept
                     # if not self.outOfElec == currentMessage['clientID']: # Check if has already 'lost' election
 
                     if 'ID' in self.unprocessedReqs.keys():
@@ -242,7 +242,7 @@ class Train:
                         print( " \033[94mTrain {}:\033[0m Finishing election! I've won!".format(self.id) )
 
                     self.path += self.unprocessedReqs['route'] # Adds route to desired path
-                    if self.unprocessedReqs['simpleD'] == 0 and self.trainMode == TrainModes.wait:
+                    if self.unprocessedReqs['simpleD'] == 0 and self.mode == TrainModes.wait:
                         self.okToMove = False
                         self.waitForClientDelay = 0
 
@@ -255,19 +255,19 @@ class Train:
                     self.client_accept()
                     self.unprocessedReqs = {} # Finishes current election process
 
-                    if self.trainMode == TrainModes.wait:
-                        self.trainMode = TrainModes.accept
+                    if self.mode == TrainModes.wait:
+                        self.mode = TrainModes.accept
                         self.currentGoal = tuple(self.client[0][1]) # pickup
         # ------------------------------------------
 
         # Moving train and handling new position
-        if (self.trainMode == TrainModes.accept) and (not self.okToMove):
+        if (self.mode == TrainModes.accept) and (not self.okToMove):
             if self.log:
                 print(" \033[94mTrain {}:\033[0m Waiting for client to board ({})".
                       format(self.id, self.client[0][0]))
             if self.waitForClientDelay >= self.clientWaitingTime:
                 self.okToMove = True
-        if (self.trainMode == TrainModes.busy) and (not self.okToMove):
+        if (self.mode == TrainModes.busy) and (not self.okToMove):
             if self.log:
                 print(" \033[94mTrain {}:\033[0m Waiting for client to disembark ({})".
                       format(self.id, self.client[0][0]))
@@ -277,26 +277,26 @@ class Train:
         self.move()
 
         if self.pos == self.currentGoal:  # Reached current destination
-            if self.trainMode == TrainModes.accept:
+            if self.mode == TrainModes.accept:
                 self.notify_client()
 
                 # Client boarding train
-                self.trainMode = TrainModes.busy
+                self.mode = TrainModes.busy
                 self.currentGoal = tuple(self.client[0][2]) # dropoff
 
-            elif self.trainMode == TrainModes.busy:
+            elif self.mode == TrainModes.busy:
                 # Client leaving the train
                 self.notify_client()
 
                 self.client.pop() # taking out client from list
                 if len(self.client) > 0:
-                    self.trainMode = TrainModes.accept
+                    self.mode = TrainModes.accept
                     self.currentGoal = self.client[0][1] # pickUp
                 else:
                     self.currentGoal = None
-                    self.trainMode = TrainModes.wait
+                    self.mode = TrainModes.wait
 
-            elif self.trainMode == TrainModes.outOfOrder:
+            elif self.mode == TrainModes.outOfOrder:
                 self.kill()         # TODO: Check this. Don't know if this is the best usage
     # -----------------------------------------------------------------------------------------
 
@@ -523,12 +523,12 @@ class Train:
             Notifies client of train arrival at the pick up or drop off location
         """
         mType = None
-        if self.trainMode == TrainModes.accept:
+        if self.mode == TrainModes.accept:
             mType = MsgTypes.pickup
             if self.log:
                 print(" \033[94mTrain {}:\033[0m Reached client. Sending message to notify him".format(self.id))
 
-        elif self.trainMode == TrainModes.busy:
+        elif self.mode == TrainModes.busy:
             mType = MsgTypes.dropoff
             if self.log:
                 print(" \033[94mTrain {}:\033[0m Reached destination. Sending message to notify client".format(self.id))
@@ -622,7 +622,7 @@ class Train:
         with cbook.get_sample_data(self.img) as image_file:
             image = plt.imread(image_file)
 
-        if self.trainMode == TrainModes.busy:
+        if self.mode == TrainModes.busy:
             im = ax.imshow(image[:, :, 0], extent=[0, 1, 0, 1], clip_on=True)
         else:
             im = ax.imshow(image, extent=[0, 1, 0, 1], clip_on=True)

@@ -9,6 +9,7 @@ __all__ = ['Client']
 from Protocol import Message, MsgTypes
 from enum import Enum
 import os
+from random import random
 import matplotlib.pyplot as plt
 import matplotlib.cbook as cbook
 import matplotlib.transforms as mtransforms
@@ -54,6 +55,7 @@ class Client:
 
         # Client gif image
         self.img = os.path.dirname(os.path.abspath(__file__)) + '/man-user.png'
+        self.rand_pos = 2*random()
 
         # Initial client mode
         self.mode = CliModes.login
@@ -116,7 +118,7 @@ class Client:
                 self.mode = CliModes.dropoff
                 self.pos = (self.destiny[0], self.destiny[1])
                 if self.log:
-                    print("  \033[92mClient {}:\033[0m Getting of train".format(self.id))
+                    print("  \033[92mClient {}:\033[0m Getting off train".format(self.id))
         # -----------------------------------
 
         # Updating client mode of operation
@@ -184,7 +186,7 @@ class Client:
             scale = (ymax - ymin) * .03  # Scale fator to print visible trains
 
             trans_data = mtransforms.Affine2D().scale(-scale * multiplier, scale).\
-                                         translate(self.pos[0] - (self.id + .5 * scale) * multiplier, self.pos[1] + .5 * scale)\
+                                         translate(self.pos[0] - (.5 * scale + self.rand_pos) * multiplier, self.pos[1] + .5 * scale)\
                                          + ax.transData
             im.set_transform(trans_data)
             x1, x2, y1, y2 = im.get_extent()

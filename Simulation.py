@@ -189,6 +189,8 @@ if __name__ == "__main__":
     finished = False
     simTime = 0
 
+    out_file = open("log.txt", "w")
+
     fig = plt.figure(figsize=(10, 10))
     fig.suptitle( "TR.AI.NS Simulation", fontweight='bold', fontsize=17 )
 
@@ -274,14 +276,26 @@ if __name__ == "__main__":
                     client.kill()
                     nClients += 1
 
+        out_file.write( "Simulation step {}, timer {}\n".format(simTime, simTime*v_step) )
+        for device in sim.devices:
+            out_file.write( "\tDevice {}, mode {}\n".format(device.id, device.mode) )
+
+            if isinstance(device, Train):
+                out_file.write( "\t  Processing request {}\n".format(device.unprocessedReqs) )
+                out_file.write( "\t  Path {}\n".format(device.path) )
+                out_file.write( "\t  Clients list {}\n".format(device.client) )
+            elif isinstance(device, Client):
+                out_file.write( "\t  Train that will pick me up {}\n".format(device.train) )
+        out_file.write("\n")
 
         simTime += 1
 
-        if (args.total_steps_run != -1) and (simTime >= args.total_steps_run):
+        if args.total_steps_run != -1:
+            if simTime >= args.total_steps_run:
+                finished = True
+        elif nClients >= 10:
             finished = True
 
-        if nClients >= 10:
-            finished = True
-
+    out_file.close()
     print("Finished simulation!")
     plt.show()
