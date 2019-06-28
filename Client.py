@@ -180,8 +180,12 @@ class Client:
             if self.mode == CliModes.dropoff:
                 multiplier = -1
 
-            trans_data = mtransforms.Affine2D().scale(-1.5 * multiplier, 1.5).\
-                                         translate(self.pos[0] - self.id * 0.1 * multiplier, self.pos[1] + .1) + ax.transData
+            xmin, xmax, ymin, ymax = ax.axis()
+            scale = (ymax - ymin) * .03  # Scale fator to print visible trains
+
+            trans_data = mtransforms.Affine2D().scale(-scale * multiplier, scale).\
+                                         translate(self.pos[0] - (self.id + .5 * scale) * multiplier, self.pos[1] + .5 * scale)\
+                                         + ax.transData
             im.set_transform(trans_data)
             x1, x2, y1, y2 = im.get_extent()
             ax.plot(x1, y1, transform=trans_data, zorder=7)

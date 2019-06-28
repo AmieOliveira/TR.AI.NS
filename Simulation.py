@@ -30,6 +30,12 @@ modifiers.add_argument( '-nT', '--number-of-trains', type=int, default=3,
                         help='Number of trains the simulation should initially contain' )
 modifiers.add_argument( '-fC', '--frequency-of-client', type=int, default=25,
                         help='Frequency of clients appearance' )
+modifiers.add_argument( '-tS', '--total-steps-run', type=int, default=-1,
+                        help='Total number of steps one wishes the simulation to run.'
+                             'If nothing is specified, simulation will stop after'
+                             'delivering 10 clients.' )
+modifiers.add_argument( '-vS', '--step-speed', type=float, default=1,
+                        help='Ratio of of steps per second' )
 
 
 args = parser.parse_args()
@@ -58,18 +64,23 @@ if __name__ == "__main__":
 
     nVertices = 0
     nEdges = 0
+    map_size = 0
     with open(graphInfo) as csv_file:
         csv_reader = csv.reader(csv_file, delimiter=';')
         line_count = 0
         for row in csv_reader:
             if line_count == 0:
                 if not row[0] == "Number of vertices":
-                    raise ("Wrong input file format. See map input format")
+                    raise Exception("Wrong input file format. See map input format")
                 nVertices = int(row[1])
-            else:
+            elif line_count == 1:
                 if not row[0] == "Number of connections":
-                    raise ("Wrong input file format. See map input format")
+                    raise Exception("Wrong input file format. See map input format")
                 nEdges = int(row[1])
+            else:
+                if not row[0] == "Map size":
+                    raise Exception("Wrong input file format. See map input format")
+                map_size = float(row[1])
             line_count += 1
 
         print("\t - Map contains %d vertices and %d edges" % (nVertices, nEdges))
@@ -136,13 +147,18 @@ if __name__ == "__main__":
 
     net = Network(sim, log=True)
 
+    sim.clientRange = int(map_size * .5)
+    sim.trainRange = 3 * sim.clientRange
+
     # ------------------------------
     # Creating train objects
     nTrains = args.number_of_trains
 
+    v_step = args.step_speed
+
     for i in range(nTrains):
         pos = vert_pos[ randint(0,nVertices-1) ]
-        tr = Train(i, pos, mapPath, availability, net, log=True)
+        tr = Train(i, pos, v_step, mapPath, availability, net, log=True)
         sim.devices += [tr]
 
     # ------------------------------
@@ -180,7 +196,7 @@ if __name__ == "__main__":
     plt.show(block=False)
 
     while not finished:
-        print( "Simulation counter: {}".format(simTime) )
+        print( "Simulation counter: {}".format(simTime * v_step) )
 
         r = randint(1, 100)
         if r % args.frequency_of_client == 0:
@@ -217,18 +233,21 @@ if __name__ == "__main__":
                     nEdgesDrawn += 1
         # print(f"{nEdgesDrawn} edges drawn of {nEdges}.")
 
+        xmin, xmax, ymin, ymax = ax.axis()
+        scale = (ymax-ymin) * .016  # Scale fator to print visible circles
+
         for ponto in stoppingPoints.keys():
             pos = vert_pos[stoppingPoints[ponto]]
-            c = plt.Circle(pos, radius=.4, color='r', zorder=-5)
+            c = plt.Circle(pos, radius=scale, color='r', zorder=-5)
             ax.add_patch(c)
-            ax.text(pos[0] + .2, pos[1] + .4, ponto, fontsize=12, wrap=True, zorder=-3)
+            ax.text(pos[0] + scale*.5, pos[1] + scale, ponto, fontsize=12, wrap=True, zorder=-3)
 
         xmin, xmax, ymin, ymax = ax.axis()
-        diverge = 2
-        xmin = xmin - diverge
-        xmax = xmax + diverge
-        ymin = ymin - diverge
-        ymax = ymax + diverge
+        diverge = .05
+        xmin = xmin - (xmax - xmin) * diverge
+        xmax = xmax + (xmax - xmin) * diverge
+        ymin = ymin - (ymax - ymin) * diverge
+        ymax = ymax + (ymax - ymin) * diverge
         ax.axis([xmin, xmax, ymin, ymax])
 
         # TODO: Print in canvas the current simulation hour
@@ -238,7 +257,6 @@ if __name__ == "__main__":
 
         plt.show(block=False)
         fig.canvas.flush_events()
-        time.sleep(.1)
 
         # Remove clients from list
         for client in clientList:
@@ -258,10 +276,12 @@ if __name__ == "__main__":
 
 
         simTime += 1
-        #if simTime >= 150:
-        #    finished = True
+
+        if (args.total_steps_run != -1) and (simTime >= args.total_steps_run):
+            finished = True
 
         if nClients >= 10:
             finished = True
 
+    print("Finished simulation!")
     plt.show()

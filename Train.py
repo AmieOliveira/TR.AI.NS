@@ -33,7 +33,7 @@ class TrainModes(Enum):
 
 
 class Train:
-    def __init__(self, ID, pos0, mapFile, edgeAvaliability, network, log=False):
+    def __init__(self, ID, pos0, vStep, mapFile, edgeAvaliability, network, log=False):
         """
             Class Train contains the whole operational code for a transportation unit in
             the TR.AI.NS project.
@@ -55,16 +55,17 @@ class Train:
 
         self.currentEdge = None
 
-        self.vStep = .2                  # approximate s/step ratio
+        self.vStep = vStep                  # approximate s/step ratio
         self.v = [0, 0]                      # train speed in m/s
             # Quando evoluir adiconar aceleração
 
-        self.vMax = 6                   # Maximum train speed in m/s
-        #self.aMax = 1                   # Maximum train acceleration in m/s^2
+        self.vMax = 20                   # Maximum train speed in m/s
+        #self.aMax = 4                   # Maximum train acceleration in m/s^2
+        # TODO: Add acceleration to move method
 
         self.okToMove = True
         self.waitForClientDelay = 0
-        self.clientWaitingTime = 5
+        self.clientWaitingTime = 5 * self.vStep   # in number of steps
 
         # Messaging attributes
         self.messageBuffer = []
@@ -261,9 +262,15 @@ class Train:
 
         # Moving train and handling new position
         if (self.trainMode == TrainModes.accept) and (not self.okToMove):
+            if self.log:
+                print(" \033[94mTrain {}:\033[0m Waiting for client to board ({})".
+                      format(self.id, self.client[0][0]))
             if self.waitForClientDelay >= self.clientWaitingTime:
                 self.okToMove = True
         if (self.trainMode == TrainModes.busy) and (not self.okToMove):
+            if self.log:
+                print(" \033[94mTrain {}:\033[0m Waiting for client to disembark ({})".
+                      format(self.id, self.client[0][0]))
             if self.waitForClientDelay >= self.clientWaitingTime:
                 self.okToMove = True
 
@@ -342,11 +349,11 @@ class Train:
             for row in csv_reader:
                 if line_count == 0:
                     if not row[0] == "Number of vertices":
-                        raise ("Wrong input file format. See map input format")
+                        raise Exception("Wrong input file format. See map input format")
                     self.nVertices = int(row[1])
-                else:
+                elif line_count == 1:
                     if not row[0] == "Number of connections":
-                        raise ("Wrong input file format. See map input format")
+                        raise Exception("Wrong input file format. See map input format")
                     self.nEdges = int(row[1])
                 line_count += 1
 
@@ -620,7 +627,11 @@ class Train:
         else:
             im = ax.imshow(image, extent=[0, 1, 0, 1], clip_on=True)
 
-        trans_data = mtransforms.Affine2D().scale(2, 2).translate(-1, 0).rotate_deg(rotation).translate(self.pos[0], self.pos[1]) + ax.transData
+        xmin, xmax, ymin, ymax = ax.axis()
+        scale = (ymax-ymin) * .05  # Scale fator to print visible trains
+
+        trans_data = mtransforms.Affine2D().scale(scale, scale).translate(-scale * .5, 0).\
+                         rotate_deg(rotation).translate(self.pos[0], self.pos[1]) + ax.transData
         im.set_transform(trans_data)
 
         x1, x2, y1, y2 = im.get_extent()
