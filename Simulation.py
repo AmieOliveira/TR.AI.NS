@@ -147,7 +147,7 @@ if __name__ == "__main__":
 
     net = Network(sim, log=True)
 
-    sim.clientRange = int(map_size * .5)
+    sim.clientRange = int(map_size * .7)
     sim.trainRange = 3 * sim.clientRange
 
     # ------------------------------
@@ -278,7 +278,7 @@ if __name__ == "__main__":
 
         out_file.write( "Simulation step {}, timer {}\n".format(simTime, simTime*v_step) )
         for device in sim.devices:
-            out_file.write( "\tDevice {}, mode {}\n".format(device.id, device.mode) )
+            out_file.write( "\tDevice {}, mode {}: position {}\n".format(device.id, device.mode, device.pos) )
 
             if isinstance(device, Train):
                 out_file.write( "\t  Processing request {}\n".format(device.unprocessedReqs) )

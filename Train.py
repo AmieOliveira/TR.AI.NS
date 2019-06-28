@@ -138,18 +138,11 @@ class Train:
                             # In this case I am not moving , so I am in thory waiting at a vertice
                             route, d = self.calculate_route( self.pos, currentMessage['pickUp'] )
                         elif (self.mode == TrainModes.accept) or (self.mode == TrainModes.busy):
-                            # FIXME: IndexError: list index out of range
-                            # How can path be empty if train is still in those modes? There should be a '-1' index always
-                            if len(self.path) == 0:
-                                print("\033[91mERROR! PATH SHOULDN'T BE NULL!!\033[0m")
-                                print(f"Train: {self.id}. Mode: {self.mode}")
-                                print(self.path, self.client)
-                                print(self.unprocessedReqs)
                             route, d = self.calculate_route( self.path[-1], currentMessage['pickUp'] )
-                            #route = route[1:]
+                            route = route[1:]
 
-                        self.unprocessedReqs = dict(ID=clientID, pickup=currentMessage['pickUp'],
-                                                    dropoff=currentMessage['dropOff'], delayT=0,
+                        self.unprocessedReqs = dict(ID=clientID, pickup=tuple(currentMessage['pickUp']),
+                                                    dropoff=tuple(currentMessage['dropOff']), delayT=0,
                                                     inElections=False, simpleD=d, route=route, msgWait=0)
 
                         self.acknowlege_request()
@@ -257,7 +250,7 @@ class Train:
 
                     if self.mode == TrainModes.wait:
                         self.mode = TrainModes.accept
-                        self.currentGoal = tuple(self.client[0][1]) # pickup
+                        self.currentGoal = self.client[0][1] # pickup
         # ------------------------------------------
 
         # Moving train and handling new position
@@ -282,22 +275,21 @@ class Train:
 
                 # Client boarding train
                 self.mode = TrainModes.busy
-                self.currentGoal = tuple(self.client[0][2]) # dropoff
+                self.currentGoal = self.client[0][2] # dropoff
 
             elif self.mode == TrainModes.busy:
                 # Client leaving the train
                 self.notify_client()
 
-                self.client.pop() # taking out client from list
+                self.client.pop(0) # taking out client from list
                 if len(self.client) > 0:
                     self.mode = TrainModes.accept
                     self.currentGoal = self.client[0][1] # pickUp
+                    # self.waitForClientDelay = 0
+                    # self.okToMove = False
                 else:
                     self.currentGoal = None
                     self.mode = TrainModes.wait
-
-            elif self.mode == TrainModes.outOfOrder:
-                self.kill()         # TODO: Check this. Don't know if this is the best usage
     # -----------------------------------------------------------------------------------------
 
     def receive_message(self, msgStr):
@@ -594,7 +586,6 @@ class Train:
                 a = max(v1, v2)
                 b = min(v1, v2)
 
-                # FIXME: When there are two sequentoal vertices in path there are equal we get a bug here. But this was not supposed to happen
                 if not self.semaphore[ (a, b) ]:
                     print( " \033[94mTrain {}:\033[0m Road occupied. Try again later".format(self.id) )
                     return

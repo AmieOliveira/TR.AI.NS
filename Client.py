@@ -32,8 +32,6 @@ class CliModes(Enum):
 
 
 class Client:
-    #TODO: Add
-
     def __init__(self, ID, pos0, destiny, mapFile, network, log=False):
         self.id = ID
         if int(self.id) == self.id:
