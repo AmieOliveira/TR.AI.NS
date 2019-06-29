@@ -33,6 +33,21 @@ class CliModes(Enum):
 
 class Client:
     def __init__(self, ID, pos0, destiny, mapFile, network, log=False):
+        """
+            Class Client contains the whole operational code for a client in
+            the TR.AI.NS project system
+        :param ID: Gives the ID number of the client. Each client should have a unic
+            identifier, which should also be different from all trains identifiers
+            Norm says clients should have integers plus a half as identifiers (for
+             example 0.5 or 13.5)
+        :param pos0: Initial position of client. Format should be '(x, y)'. Needs to
+          be one of the stopping points on the map
+        :param destiny: Desired destination. Needs to be one of the stopping points
+          on the map
+        :param mapFile: Name of the file that contains the map information
+        :param network: Object that simulates a broadcast medium of communication
+        :param log: Boolean parameter that enables or disables client's prints
+        """
         self.id = ID
         if int(self.id) == self.id:
             self.id = ID + .5
@@ -45,7 +60,7 @@ class Client:
         self.network = network # Connecto to the network communication system
 
         # Moving attributes
-        self.pos = pos0  # Current position of the train
+        self.pos = tuple(pos0) # Current position of the train
         self.destiny = destiny # Current client destiny
 
         # Message buffer
@@ -142,7 +157,7 @@ class Client:
 
     def receive_message(self, msgStr):
         """
-        Receives message in string format and converts it into a protocol class
+            Receives message in string format and converts it into a protocol class
         :param msgStr: Should be a string coded with the message
         """
         msg = Message()
@@ -187,10 +202,18 @@ class Client:
                                          translate(self.pos[0] - (.5 * scale + self.rand_pos) * multiplier, self.pos[1] + .5 * scale)\
                                          + ax.transData
             im.set_transform(trans_data)
+
+            ax.text(self.pos[0] - (2 * scale + self.rand_pos) * multiplier, self.pos[1] + .5 * scale,
+                    "{}".format(int(self.id-.5)), verticalalignment='bottom', horizontalalignment='center',
+                    color='blue')
+
             x1, x2, y1, y2 = im.get_extent()
             ax.plot(x1, y1, transform=trans_data, zorder=7)
     # ---------------------------------------------------
 
     def kill(self):
+        """
+             Terminate this object. Should be called by simulation when taking client out of it
+        """
         print( "  \033[92mClient {}:\033[0m Command for Killing Me".format(self.id) )
         del self

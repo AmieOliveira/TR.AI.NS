@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cbook as cbook
 import matplotlib.transforms as mtransforms
 import networkx as nx
+from math import atan2
 
 
 class TrainModes(Enum):
@@ -38,9 +39,16 @@ class Train:
             Class Train contains the whole operational code for a transportation unit in
             the TR.AI.NS project.
         :param ID: Gives the ID number of the train. Every train should have a distinct ID
-            (which should also be different from the client IDs)
-        :param pos0: Initial position of the train. Format should be '(x, y)'
-        :param mapFile: name of the file that contains the map information
+          (which should also be different from the client IDs).
+          Norm says trains should have integer identifiers
+        :param pos0: Initial position of the train. Format should be '(x, y)', and needs to
+          be either vertice or edge on map
+        :param vStep: Speed of time passage. Gives the ratio of seconds per step
+        :param mapFile: Name of the file that contains the map information
+        :edgeAvaliability: Shared object amongst trains that simulates a semaphore of sorts
+          in the simulation, preventing collisions
+        :network: Object that simulates a broadcast medium of communication
+        :log: Boolean parameter that enables or disables train's prints
         """
         self.id = ID
 
@@ -51,7 +59,7 @@ class Train:
         self.log = log
 
         # Moving attributes
-        self.pos = pos0                 # Current position of the train
+        self.pos = tuple(pos0)                 # Current position of the train
 
         self.currentEdge = None
 
@@ -92,8 +100,6 @@ class Train:
 
         # Train gif image
         self.img = os.path.dirname(os.path.abspath(__file__)) + '/train.png'
-
-
     # -----------------------------------------------------------------------------------------
 
     def step(self):
@@ -460,7 +466,11 @@ class Train:
             Calculates the full distance to be traveled in path schedule
         """
         totSum = 0
+
         if self.path != []:
+            if self.currentEdge:
+                totSum += distance.euclidean(self.pos, self.path[0])
+
             for index in range(len(self.path)-1):
                 totSum += distance.euclidean(self.path[index],self.path[index+1])
                 continue
@@ -496,7 +506,7 @@ class Train:
         self.network.broadcast(msg_sent.encode(), self)
     # -----------------------------------------------------------------------------------------
 
-    def client_accept(self): # Envia mensagem de líder para todos os trens e request answer para o cliente.
+    def client_accept(self):
         """
             Method to encapsule messages send when a client is accepted
             (train has won client election and will pick-up client)
@@ -527,6 +537,22 @@ class Train:
 
         msg = Message(msgType=mType, sender=self.id, receiver=self.client[0][0])
         self.network.broadcast(msg.encode(), self)
+    # -----------------------------------------------------------------------------------------
+
+    def discover_proximity_point(self, point):
+        dist = {}
+        minVal = 10000000
+        point_temp = point
+
+        for vertice in self.vert_pos:
+            value = distance.euclidean( vertice, point )
+            dist[ vertice ] = value
+
+            if (value < minVal):
+                minVal = value
+                point_temp = vertice
+
+        return point_temp, minVal
     # -----------------------------------------------------------------------------------------
 
     def move(self):
@@ -625,26 +651,36 @@ class Train:
                          rotate_deg(rotation).translate(self.pos[0], self.pos[1]) + ax.transData
         im.set_transform(trans_data)
 
+        direction = [1,1]
+        magnitude = distance.euclidean((0,0), self.v)
+        if magnitude != 0:
+            seno = self.v[1]/magnitude
+            cosseno = self.v[0]/magnitude
+            direction = [ direction[0]*cosseno - direction[1]*seno,
+                          direction[0]*seno + direction[1]*cosseno  ] # Rotating vector
+
+        ax.text(self.pos[0] + .7 * scale * direction[0], self.pos[1] + .6 * scale * direction[1],
+                "{}".format(self.id))
+
+        if self.mode == TrainModes.busy:
+            dirClient = [-1, 1]
+            if magnitude != 0:
+                dirClient = [ dirClient[0]*cosseno - dirClient[1]*seno,
+                              dirClient[0]*seno + dirClient[1]*cosseno  ]
+            ax.text(self.pos[0] + .7 * scale * dirClient[0],
+                    self.pos[1] + .6 * scale * dirClient[1],
+                    "{}".format(int(self.client[0][0] - .5)),
+                    fontsize=8,
+                    verticalalignment='bottom', horizontalalignment='center',
+                    color='blue')
+
         x1, x2, y1, y2 = im.get_extent()
         ax.plot(x1, y1, transform=trans_data, zorder=10)
     # -----------------------------------------------------------------------------------------
 
-    def discover_proximity_point(self, point):
-        dist = {}
-        minVal = 10000000
-        point_temp = point
-
-        for vertice in self.vert_pos:
-            value = distance.euclidean( vertice, point )
-            dist[ vertice ] = value
-
-            if (value < minVal):
-                minVal = value
-                point_temp = vertice
-
-        return point_temp, minVal
-    # -----------------------------------------------------------------------------------------
-
     def kill(self):
+        """
+            Terminate this object. Should be called by simulation when taking train out of it
+        """
         print( " \033[94mTrain {}:\033[0m Command for Killing Me".format(self.id) )
         del self

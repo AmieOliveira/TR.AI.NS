@@ -40,6 +40,13 @@ modifiers.add_argument( '-vS', '--step-speed', type=float, default=1,
 
 args = parser.parse_args()
 
+# TODO: Create interface with user
+#   Ideally it should allow is to:
+#     - Create a client at will (selecting its position and destination or leaving it to chance)
+#     - Add trains or remove selected ones
+#     - Put trains in outOfOrder to move them to designed places
+#     - Any other cool ideas
+
 
 class Simulation:
     def __init__(self):
@@ -145,7 +152,7 @@ if __name__ == "__main__":
     # Creating Network
     sim = Simulation()
 
-    net = Network(sim, log=True)
+    net = Network(sim, log=False)
 
     sim.clientRange = int(map_size * .7)
     sim.trainRange = 3 * sim.clientRange
@@ -198,7 +205,8 @@ if __name__ == "__main__":
     plt.show(block=False)
 
     while not finished:
-        print( "Simulation counter: {}".format(simTime * v_step) )
+        clockcount = simTime * v_step
+        print( "Simulation counter: {}".format(clockcount) )
 
         r = randint(1, 100)
         if r % args.frequency_of_client == 0:
@@ -252,10 +260,19 @@ if __name__ == "__main__":
         ymax = ymax + (ymax - ymin) * diverge
         ax.axis([xmin, xmax, ymin, ymax])
 
-        # TODO: Print in canvas the current simulation hour
-
         for device in sim.devices:
             device.draw(ax)
+
+        clockcount = float(clockcount)
+        hour = int(clockcount // 3600)
+        clockcount %= 3600
+        minutes = int(clockcount // 60)
+        clockcount %= 60
+        seconds = int (clockcount)
+        ax.text(0.95, -0.15, 'Time {:02d}:{:02d}:{:02d}'.format(hour, minutes, seconds),
+                verticalalignment='top', horizontalalignment='right',
+                transform=ax.transAxes,
+                color='black', fontsize=15)
 
         plt.show(block=False)
         fig.canvas.flush_events()
