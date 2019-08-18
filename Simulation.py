@@ -15,6 +15,7 @@ import csv
 import numpy as np
 from random import randint
 import matplotlib.pyplot as plt
+from matplotlib.widgets import Button
 import time
 
 plt.switch_backend('TkAgg')
@@ -54,6 +55,25 @@ class Simulation:
         self.trainRange = 120
         self.clientRange = 40
 
+running = 1       # Global variable to say if simulation should be running
+
+class Index(object):
+    run = 1
+
+    def pause_play(self, event):
+        print("Button pressed!")
+        global running
+
+        if self.run == 0:
+            self.run = 1
+            running = 1
+            button.label.set_text("Pause")
+        elif self.run == 1:
+            self.run = 0
+            running = 0
+            button.label.set_text("Play")
+
+callback = Index()
 
 # Main funtion
 if __name__ == "__main__":
@@ -204,31 +224,37 @@ if __name__ == "__main__":
     ax = fig.add_subplot(1, 1, 1)
     plt.show(block=False)
 
+    bax = plt.axes([0.05, 0.01, 0.1, 0.075])
+    button = Button(bax, 'Pause')
+
     while not finished:
-        clockcount = simTime * v_step
-        print( "Simulation counter: {}".format(clockcount) )
+        if running:
+            clockcount = simTime * v_step
+            print( "Simulation counter: {}".format(clockcount) )
 
-        r = randint(1, 100)
-        if r % args.frequency_of_client == 0:
-            currCli += 1
+            r = randint(1, 100)
+            if r % args.frequency_of_client == 0:
+                currCli += 1
 
-            init = randint(0, len(stoppingPointsPos) - 1)
-            fin = randint(0, len(stoppingPointsPos) - 1)
-            if fin == init:
-                fin += 1
-                if fin == len(stoppingPointsPos):
-                    fin = 0
+                init = randint(0, len(stoppingPointsPos) - 1)
+                fin = randint(0, len(stoppingPointsPos) - 1)
+                if fin == init:
+                    fin += 1
+                    if fin == len(stoppingPointsPos):
+                        fin = 0
 
-            pos = stoppingPointsPos[init]
-            dest = stoppingPointsPos[fin]
+                pos = stoppingPointsPos[init]
+                dest = stoppingPointsPos[fin]
 
-            cl = Client(currCli, pos, dest, mapPath, net, log=True)
-            sim.devices += [cl]
-            clientList += [cl]
+                cl = Client(currCli, pos, dest, mapPath, net, log=True)
+                sim.devices += [cl]
+                clientList += [cl]
 
-        # Run all devices
-        for device in sim.devices:
-            device.step()
+            # Run all devices
+            for device in sim.devices:
+                device.step()
+        else:
+            print( "Simulation paused" )
 
         # Print map
         ax.cla()
@@ -237,7 +263,7 @@ if __name__ == "__main__":
         for i in range(nVertices):
             for j in range(nVertices):
                 if j >= i:
-                    break;
+                    break
                 if edges[i][j] > 0:
                     ax.plot([vert_pos[i][0], vert_pos[j][0]], [vert_pos[i][1], vert_pos[j][1]], 'k', zorder=-4)
                     nEdgesDrawn += 1
@@ -305,7 +331,10 @@ if __name__ == "__main__":
                 out_file.write( "\t  Train that will pick me up {}\n".format(device.train) )
         out_file.write("\n")
 
-        simTime += 1
+        if running:
+            simTime += 1
+
+        button.on_clicked(callback.pause_play)
 
         if args.total_steps_run != -1:
             if simTime >= args.total_steps_run:

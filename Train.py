@@ -416,14 +416,24 @@ class Train:
             if self.log:
                 print(" \033[94mTrain {}:\033[0m - Read over {} edges in graph".format(self.id, edge_count))
 
-                # node_positions = {node[0]: ( self.vert_namePos[node[0]] ) for node in self.graph.nodes(data=True)}
-                # plt.figure(10)
-                # nx.draw(self.graph, pos=node_positions, node_size=10, node_color='black', with_labels=True)
-                # plt.title('Graph Representation of Train Map', size=15)
-                # plt.show()
+
+        # Route calculation helpers
+        self.routes = {}
+        self.route_lengh = {}
+
+        for vert1 in self.vert_names:
+            if vert1[0] != "_":
+                for vert2 in self.vert_names:
+                    if vert2[0] != "_":
+                        self.route_lengh[(vert1, vert2)] = nx.dijkstra_path_length(self.graph, vert1, vert2, "distance")
+                        vPath = nx.dijkstra_path(self.graph, vert1, vert2, "distance")
+
+                        self.routes[(vert1, vert2)] = []
+                        for vert in vPath:
+                            self.routes[(vert1, vert2)] += [ self.vert_namePos[vert] ]
     # -----------------------------------------------------------------------------------------
 
-    def calculate_route(self, init, fin, measure="distance"):
+    def calculate_route(self, init, fin): #, measure="distance"):
         """
             Calculates the route from 'init' to 'fin'.
         :param init: Initial point. Should be the position of a vertice on the map
@@ -432,6 +442,7 @@ class Train:
             pints, but could be the edge weight, for example
         :return: Returns first the path, followed by the total distance between two points
         """
+        measure = "distance"
 
         len_temp = 0
         if not init in self.vert_pos:
@@ -448,6 +459,15 @@ class Train:
         init_node = self.vert_names[ self.vert_idx[ init ] ]
         fin_node = self.vert_names[ self.vert_idx[ fin ] ]
 
+
+        if init_node[0] != "_" and fin_node[0] != "_":
+            # Both are stopping points, so path is already recorded in memory
+            path = self.routes[ (init_node, fin_node) ]
+            distance = self.route_lengh[ (init_node, fin_node) ] + len_temp
+
+            return path, distance
+
+        # If at least one of the vertices is not a stopping point, the train will calculate
         distances_length = nx.dijkstra_path_length(self.graph, init_node, fin_node, measure)
         distances_path = nx.dijkstra_path(self.graph, init_node, fin_node, measure)
 
