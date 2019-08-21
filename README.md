@@ -37,3 +37,9 @@ of steps. Otherwise the simulation will finish after 10 clients are delivered.
 
 * `STEP_SPEED` is the ratio of seconds per step the simulation will emulate.
 Default is set to 1 s/step
+
+
+
+
+#### Credits
+The icons for the train and the user were obtained from the website 'www.flaticon.com' (accessed on 22th June 2019)

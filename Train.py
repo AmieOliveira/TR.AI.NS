@@ -34,7 +34,7 @@ class TrainModes(Enum):
 
 
 class Train:
-    def __init__(self, ID, pos0, vStep, mapFile, edgeAvaliability, network, log=False):
+    def __init__(self, ID, pos0, vStep, mapFile, edgeAvaliability, network, vMax = 20, log=False):
         """
             Class Train contains the whole operational code for a transportation unit in
             the TR.AI.NS project.
@@ -48,6 +48,8 @@ class Train:
         :edgeAvaliability: Shared object amongst trains that simulates a semaphore of sorts
           in the simulation, preventing collisions
         :network: Object that simulates a broadcast medium of communication
+        :vMax: Train maximum speed. As the code stands, it is the speed the train always
+         applies when moving
         :log: Boolean parameter that enables or disables train's prints
         """
         self.id = ID
@@ -67,7 +69,7 @@ class Train:
         self.v = [0, 0]                      # train speed in m/s
             # Quando evoluir adiconar aceleração
 
-        self.vMax = 20                   # Maximum train speed in m/s
+        self.vMax = vMax                 # Maximum train speed in m/s
         #self.aMax = 4                   # Maximum train acceleration in m/s^2
         # TODO: Add acceleration to move method
 
@@ -260,16 +262,16 @@ class Train:
         # ------------------------------------------
 
         # Moving train and handling new position
-        if (self.mode == TrainModes.accept) and (not self.okToMove):
+        if (self.mode == TrainModes.busy) and (not self.okToMove):
             if self.log:
                 print(" \033[94mTrain {}:\033[0m Waiting for client to board ({})".
                       format(self.id, self.client[0][0]))
             if self.waitForClientDelay >= self.clientWaitingTime:
                 self.okToMove = True
-        if (self.mode == TrainModes.busy) and (not self.okToMove):
+        if (self.mode in [TrainModes.wait, TrainModes.accept]) and (not self.okToMove):
             if self.log:
-                print(" \033[94mTrain {}:\033[0m Waiting for client to disembark ({})".
-                      format(self.id, self.client[0][0]))
+                print(" \033[94mTrain {}:\033[0m Waiting for client to disembark".
+                      format(self.id))
             if self.waitForClientDelay >= self.clientWaitingTime:
                 self.okToMove = True
 

@@ -82,8 +82,12 @@ class Client:
         # Train that accepted me
         self.train = None
 
+        # Waiting time statistics
+        self.timeTillRequest = -1
+        self.waitingTime = -1
+
         if self.log:
-            print("  \033[92mClient {}:\033[0m Created client with dentination {}".format(self.id, self.destiny))
+            print("  \033[92mClient {}:\033[0m Created client in {}, with destination {}".format(self.id, self.pos, self.destiny))
     # ---------------------------------------------------
 
     def step(self):
@@ -95,6 +99,10 @@ class Client:
         # Updating timers
         if self.mode == CliModes.request:
             self.answerTimer += 1
+            self.timeTillRequest +=1
+            self.waitingTime += 1
+        elif self.mode == CliModes.wait:
+            self.waitingTime += 1
 
         # Receiving and interpreting messages
         currentMessage = None
@@ -118,13 +126,15 @@ class Client:
                 self.mode = CliModes.wait
                 self.train = currentMessage['sender']
                 if self.log:
-                    print("  \033[92mClient {}:\033[0m Will be picked up by train {}".format(self.id, self.train))
+                    print("  \033[92mClient {}:\033[0m Will be picked up by train {} (waited {} simulation steps)".
+                          format(self.id, self.train, self.timeTillRequest))
 
             # Case 3: Train arrival
             elif currentMessage['type'] == MsgTypes.pickup.value:
                 self.mode = CliModes.moving
                 if self.log:
-                    print("  \033[92mClient {}:\033[0m Boarding train".format(self.id))
+                    print("  \033[92mClient {}:\033[0m Boarding train. (waited {} simulation steps since request)".
+                          format(self.id, self.waitingTime))
 
             # Case 4: Destination arrival
             elif currentMessage['type'] == MsgTypes.dropoff.value:
@@ -143,6 +153,8 @@ class Client:
                 self.answerTimer = 0
                 self.reqAnswer = False
                 self.mode = CliModes.request
+                self.timeTillRequest = 0
+                self.waitingTime = 0
 
         elif self.mode == CliModes.request:
             if not self.reqAnswer:
