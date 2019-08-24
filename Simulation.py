@@ -73,6 +73,24 @@ class Index(object):
             running = 0
             button.label.set_text("Play")
 
+            print( "Simulation paused" )
+
+    def statistics(self, event, waitingTime):
+        print("Button pressed")
+
+        if len(waitingTime.keys()) != 0:
+            n = 0
+            total = 0
+            for key in waitingTime.keys():
+                n += 1
+                total += waitingTime[key][1]
+            meanWaitTime = total/n
+
+            figW = plt.figure(10, figsize=(5, 2))
+            figW.text( .1, .5,
+                       "Total waiting time is of {:.1f} simulation counts.\n{} clients delivered.".
+                       format(meanWaitTime, n) )
+
 callback = Index()
 
 # Main funtion
@@ -212,6 +230,10 @@ if __name__ == "__main__":
     outingClients = {}
 
     # ------------------------------
+    # Creating waiting time data
+    waitingTime = {}
+
+    # ------------------------------
     # Looping simulation
     finished = False
     simTime = 0
@@ -226,6 +248,8 @@ if __name__ == "__main__":
 
     bax = plt.axes([0.05, 0.01, 0.1, 0.075])
     button = Button(bax, 'Pause')
+    bSax = plt.axes([0.16, 0.01, 0.1, 0.075])
+    buttonS = Button(bSax, 'Stats')
 
     while not finished:
         if running:
@@ -254,7 +278,7 @@ if __name__ == "__main__":
             for device in sim.devices:
                 device.step()
         else:
-            print( "Simulation paused" )
+            pass
 
         # Print map
         ax.cla()
@@ -308,6 +332,7 @@ if __name__ == "__main__":
             if client.mode == CliModes.dropoff:
                 if client not in outingClients.keys():
                     outingClients[client] = 0
+                    waitingTime[client.id] = (client.timeTillRequest, client.waitingTime)
                 else:
                     outingClients[client] += 1
 
@@ -335,6 +360,9 @@ if __name__ == "__main__":
             simTime += 1
 
         button.on_clicked(callback.pause_play)
+        buttonS.on_clicked(lambda x: callback.statistics(x, waitingTime))
+
+        # TODO: Understando why buttons are clicked several times, and correct it
 
         if args.total_steps_run != -1:
             if simTime >= args.total_steps_run:

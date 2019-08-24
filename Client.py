@@ -83,8 +83,8 @@ class Client:
         self.train = None
 
         # Waiting time statistics
-        self.timeTillRequest = -1
-        self.waitingTime = -1
+        self.timeTillRequest = -1       # Time until client receives a train acceptance
+        self.waitingTime = -1           # Time until client is picked up by train
 
         if self.log:
             print("  \033[92mClient {}:\033[0m Created client in {}, with destination {}".format(self.id, self.pos, self.destiny))
