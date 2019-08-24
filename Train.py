@@ -93,6 +93,9 @@ class Train:
 
         self.path = []                 # List of vertices '(x, y)' to be passed through
 
+        # Statistics
+        self.totalDistanceRun = 0
+
         # Elections variables
         self.unprocessedReqs = {}       # Client request that is on process of train elections
                                         # Requests handled in dictionaries. ONLY ONE ALLOWED PER TURN
@@ -589,6 +592,8 @@ class Train:
 
         if len(self.path) > 0 and self.okToMove:
 
+            posInit = self.pos
+
             if len(self.path) >= 2:
                 if self.path[0] == self.path[1]:
                     print(f"\033[91mERROR OCCURED!!!\033[0m Path has consecutive vertices with same value ({self.path[:2]})")
@@ -602,6 +607,8 @@ class Train:
             if (distanceToVertice[0] * self.v[0] < 0) or (distanceToVertice[1] * self.v[1] < 0):
                 # Passed vertice! Roll back
                 self.pos = (self.path[0][0], self.path[0][1])
+
+            self.totalDistanceRun += distance.euclidean(posInit, self.pos)
 
             # Update path
             if (self.pos[0] == self.path[0][0]) and (self.pos[1] == self.path[0][1]):

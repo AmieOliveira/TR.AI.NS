@@ -75,8 +75,10 @@ class Index(object):
 
             print( "Simulation paused" )
 
-    def statistics(self, event, waitingTime):
+    def statistics(self, event, waitingTime, devices):
         print("Button pressed")
+
+        outText = ""
 
         if len(waitingTime.keys()) != 0:
             n = 0
@@ -86,10 +88,19 @@ class Index(object):
                 total += waitingTime[key][1]
             meanWaitTime = total/n
 
-            figW = plt.figure(10, figsize=(5, 2))
-            figW.text( .1, .5,
-                       "Total waiting time is of {:.1f} simulation counts.\n{} clients delivered.".
-                       format(meanWaitTime, n) )
+            outText += "Total waiting time is of {:.1f} simulation counts.\n{} clients delivered.\n\n".\
+                format(meanWaitTime, n)
+
+        sumDistance = 0
+        for dev in devices:
+            if isinstance(dev, Train):
+                sumDistance += dev.totalDistanceRun
+        outText += "Total distance run by all trains: {} m".format(sumDistance)
+
+        figW = plt.figure(10, figsize=(5, 2))
+        figW.text(.1, .5, outText)
+
+
 
 callback = Index()
 
@@ -360,7 +371,7 @@ if __name__ == "__main__":
             simTime += 1
 
         button.on_clicked(callback.pause_play)
-        buttonS.on_clicked(lambda x: callback.statistics(x, waitingTime))
+        buttonS.on_clicked(lambda x: callback.statistics(x, waitingTime, sim.devices))
 
         # TODO: Understando why buttons are clicked several times, and correct it
 

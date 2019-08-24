@@ -39,6 +39,7 @@ of steps. Otherwise the simulation will finish after 10 clients are delivered.
 Default is set to 1 s/step
 
 
+[comment]: <> (TODO: Add the map format specifications!)
 
 
 #### Credits
