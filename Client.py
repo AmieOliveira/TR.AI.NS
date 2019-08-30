@@ -227,5 +227,6 @@ class Client:
         """
              Terminate this object. Should be called by simulation when taking client out of it
         """
-        print( "  \033[92mClient {}:\033[0m Command for Killing Me".format(self.id) )
+        if (self.log):
+            print( "  \033[92mClient {}:\033[0m Command for Killing Me".format(self.id) )
         del self

@@ -642,7 +642,8 @@ class Train:
                 b = min(v1, v2)
 
                 if not self.semaphore[ (a, b) ]:
-                    print( " \033[94mTrain {}:\033[0m Road occupied. Try again later".format(self.id) )
+                    if (self.log):
+                        print( " \033[94mTrain {}:\033[0m Road occupied. Try again later".format(self.id) )
                     return
 
                 else:
