@@ -1,6 +1,6 @@
 # TR.AI.NS System Simulation
 
-This code corresponds to the simulation of the Automates Transportation 
+This code corresponds to the simulation of the Automated Transportation 
 System TR.AI.NS. Code should be run through the "Simulation" script. 
 There are some necessary arguments, as will be shown below.
 
@@ -39,8 +39,12 @@ of steps. Otherwise the simulation will finish after 10 clients are delivered.
 Default is set to 1 s/step
 
 
-[comment]: <> (TODO: Add the map format specifications!)
+[comment]: <> (TODO: Add the map format specifications!
+    This simulation can be run with any map, as long as the pertinent 
+    information is given in the correct format. This folder contains 
+    a file called ")
 
+[comment]: <> (Should I add the train Petri Net?)
 
 #### Credits
 The icons for the train and the user were obtained from the website 'www.flaticon.com' (accessed on 22th June 2019)

@@ -37,9 +37,21 @@ modifiers.add_argument( '-tS', '--total-steps-run', type=int, default=-1,
                              'delivering 10 clients.' )
 modifiers.add_argument( '-vS', '--step-speed', type=float, default=1,
                         help='Ratio of of steps per second' )
+modifiers.add_argument( '-cR', '--client-range', type=float, default=.5,
+                        help='This parameter is a number between 0 and 1, and sets '
+                             'the client broadcast radius to a fraction of the map '
+                             'diagonal.' )
 
 
 args = parser.parse_args()
+
+client_range = args.client_range
+if client_range <= 0:
+    raise Exception("ERROR: Wrongly specified argument! CLIENT-RANGE should be bigger than zero")
+elif client_range > 1:
+    print("WARNING: CLIENT-RANGE argument bigger than 1. Automatically set to 1.")
+    client_range = 1
+
 
 # TODO: Create interface with user
 #   Ideally it should allow is to:
@@ -52,8 +64,8 @@ args = parser.parse_args()
 class Simulation:
     def __init__(self):
         self.devices = []
-        self.trainRange = 120
-        self.clientRange = 40
+        self.clientRange = client_range
+        self.trainRange = 3*self.clientRange
 
 running = 1       # Global variable to say if simulation should be running
 
@@ -378,7 +390,7 @@ if __name__ == "__main__":
         if args.total_steps_run != -1:
             if simTime >= args.total_steps_run:
                 finished = True
-        elif nClients >= 10:
+        elif nClients >= 15:
             finished = True
 
     out_file.close()
