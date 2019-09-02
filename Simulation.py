@@ -64,8 +64,8 @@ elif client_range > 1:
 class Simulation:
     def __init__(self):
         self.devices = []
-        self.clientRange = client_range
-        self.trainRange = 3*self.clientRange
+        self.clientRange = 40
+        self.trainRange = 120
 
 running = 1       # Global variable to say if simulation should be running
 
@@ -215,7 +215,7 @@ if __name__ == "__main__":
 
     net = Network(sim, log=False)
 
-    sim.clientRange = int(map_size * .7)
+    sim.clientRange = int(map_size * client_range)
     sim.trainRange = 3 * sim.clientRange
 
     # ------------------------------

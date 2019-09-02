@@ -118,9 +118,8 @@ class Train:
                 self.unprocessedReqs['delayT'] += 1
             else:
                 self.unprocessedReqs['msgWait'] += 1
-        if (self.mode == TrainModes.accept) or (self.mode == TrainModes.busy):
-            if not self.okToMove:
-                self.waitForClientDelay += 1
+        if not self.okToMove:
+            self.waitForClientDelay += 1
 
         # Reading and interpreting messages in the message buffer
         currentMessage = None
@@ -152,9 +151,11 @@ class Train:
                             route, d = self.calculate_route( self.path[-1], currentMessage['pickUp'] )
                             route = route[1:]
 
+                        totD = d + self.full_distance()
+
                         self.unprocessedReqs = dict(ID=clientID, pickup=tuple(currentMessage['pickUp']),
                                                     dropoff=tuple(currentMessage['dropOff']), delayT=0,
-                                                    inElections=False, simpleD=d, route=route, msgWait=0)
+                                                    inElections=False, simpleD=d, d=totD, route=route, msgWait=0)
 
                         self.acknowlege_request()
                         # Create a message type to indicate to client that the request has been heard and is being processed
@@ -169,9 +170,10 @@ class Train:
                         if self.unprocessedReqs['ID'] == currentMessage['clientID']:
                             # NOTE: I assume any car receives first the notice from the client
                             if self.log:
-                                print(" \033[94mTrain {}:\033[0m Received Election Message (from {})".format(self.id, currentMessage['sender']))
+                                print(" \033[94mTrain {}:\033[0m Received Election Message (from {}, d={})".
+                                      format(self.id, currentMessage['sender'], currentMessage['distance']))
 
-                            dTot = self.unprocessedReqs['simpleD'] + self.full_distance()
+                            dTot = self.unprocessedReqs['d']
 
                             if (dTot < currentMessage['distance']) or \
                                     (dTot == currentMessage['distance'] and self.id > currentMessage['sender']):
