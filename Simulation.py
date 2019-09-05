@@ -16,9 +16,11 @@ import numpy as np
 from random import randint
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Button
+from matplotlib import rcParams
 import time
 
 plt.switch_backend('TkAgg')
+rcParams['figure.figsize'] = [8, 5.6]
 
 parser = argparse.ArgumentParser(description='Simulation of TR.AI.NS project')
 

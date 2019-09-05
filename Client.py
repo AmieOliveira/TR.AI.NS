@@ -165,6 +165,9 @@ class Client:
                     self.request_ride()
                     self.answerTimer = 0
                     self.reqAnswer = False
+
+        elif self.mode == CliModes.moving:
+            self.update_position()
     # ---------------------------------------------------
 
     def receive_message(self, msgStr):
@@ -190,6 +193,16 @@ class Client:
         msg_sent = Message(msgType = MsgTypes.req, sender=self.id, pickup = self.pos, dropoff=self.destiny)
         self.network.broadcast(msg_sent.encode(), self)
     # ---------------------------------------------------
+
+    def update_position(self):
+        """
+            This method updates the position of the client.
+            To do so, it artificially copies the train current position, but we assume that in the
+          system real implementation it would use a GPS instead.
+        """
+        for obj in self.network.sim.devices:
+            if obj.id == self.train:
+                self.pos = obj.pos
 
     def draw(self, ax):
         """
