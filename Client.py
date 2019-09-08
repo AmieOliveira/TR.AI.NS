@@ -79,6 +79,9 @@ class Client:
         self.answerTimer = 0
         self.answerTimeout = 10
 
+        self.printRequest = False
+        self.printCount = 0
+
         # Train that accepted me
         self.train = None
 
@@ -192,6 +195,10 @@ class Client:
         """
         msg_sent = Message(msgType = MsgTypes.req, sender=self.id, pickup = self.pos, dropoff=self.destiny)
         self.network.broadcast(msg_sent.encode(), self)
+
+        # Print broadcast radius
+        self.printRequest = True
+        self.printCount = 0
     # ---------------------------------------------------
 
     def update_position(self):
@@ -234,6 +241,16 @@ class Client:
 
             x1, x2, y1, y2 = im.get_extent()
             ax.plot(x1, y1, transform=trans_data, zorder=7)
+
+            # Print broadcast radius
+            if self.printRequest:
+                c = plt.Circle(self.pos, radius=self.network.sim.clientRange, color='b', alpha=.2, zorder=-5)
+                ax.add_patch(c)
+
+                self.printCount += 1
+
+                if self.printCount >= 2:
+                    self.printRequest = False
     # ---------------------------------------------------
 
     def kill(self):

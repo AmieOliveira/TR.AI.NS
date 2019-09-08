@@ -19,7 +19,7 @@ from matplotlib.widgets import Button
 from matplotlib import rcParams
 import time
 
-plt.switch_backend('TkAgg')
+plt.switch_backend('TkAgg')     # Important to make the annimation work!
 rcParams['figure.figsize'] = [8, 5.6]
 
 parser = argparse.ArgumentParser(description='Simulation of TR.AI.NS project')
@@ -102,7 +102,7 @@ class Index(object):
                 total += waitingTime[key][1]
             meanWaitTime = total/n
 
-            outText += "Total waiting time is of {:.1f} simulation counts.\n{} clients delivered.\n\n".\
+            outText += "Average total waiting time is of {:.1f} simulation counts.\n{} clients delivered.\n\n".\
                 format(meanWaitTime, n)
 
         sumDistance = 0
@@ -344,12 +344,12 @@ if __name__ == "__main__":
         minutes = int(clockcount // 60)
         clockcount %= 60
         seconds = int (clockcount)
-        ax.text(0.95, -0.15, 'Time {:02d}:{:02d}:{:02d}'.format(hour, minutes, seconds),
+        ax.text(0.95, -0.1, 'Time {:02d}:{:02d}:{:02d}'.format(hour, minutes, seconds),
                 verticalalignment='top', horizontalalignment='right',
                 transform=ax.transAxes,
                 color='black', fontsize=15)
 
-        plt.show(block=False)
+        plt.show(block=False)       # The False argument makes the code keep running even if I don't close the plot window
         fig.canvas.flush_events()
 
         # Remove clients from list
@@ -378,6 +378,7 @@ if __name__ == "__main__":
                 out_file.write( "\t  Path {}\n".format(device.path) )
                 out_file.write( "\t  Clients list {}\n".format(device.client) )
             elif isinstance(device, Client):
+                out_file.write( "\t  Destination: {}.".format(device.destiny) )
                 out_file.write( "\t  Train that will pick me up {}\n".format(device.train) )
         out_file.write("\n")
 
