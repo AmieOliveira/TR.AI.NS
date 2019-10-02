@@ -24,6 +24,9 @@ class MsgTypes(Enum):
         the receiver it has received the message and has a smaller distance until the
         target, making it better suited to answer the call
     'leader'   -> Sent to inform other trains that I will be picking client up
+    'pickup'   -> Sent to inform the client the train has arrived at the pickup location
+    'dropoff'  -> Sent to inform the client the train has arrived at the dropoff
+        location
     """
     req = 1
     req_ack = 6

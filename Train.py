@@ -75,7 +75,8 @@ class Train:
 
         self.okToMove = True
         self.waitForClientDelay = 0
-        self.clientWaitingTime = 5 * self.vStep   # in number of steps
+        self.nominalClientWaitingTime = 10 # In seconds. Time a train should wait for boarding and departure of clients
+        self.clientWaitingTime = self.nominalClientWaitingTime / self.vStep # Converted to number of steps
 
         # Messaging attributes
         self.messageBuffer = []
@@ -100,8 +101,15 @@ class Train:
         self.unprocessedReqs = {}       # Client request that is on process of train elections
                                         # Requests handled in dictionaries. ONLY ONE ALLOWED PER TURN
         self.outOfElec = None           # There has been a client request and this is not the elected train
-        self.delayWanted = randint(1,11)
-        self.maximumMsgWait = 15
+
+        self.nominalDelayWanted = randint(1,10) # In seconds. Delay to send the election message
+        self.delayWanted = self.nominalDelayWanted / self.vStep # Converted to number of steps
+
+        self.nominalMaximumMsgWait = 30 # In seconds. Time a train should wait for answer from other trains before
+                                        # declaring himself winner of the election process.
+        self.maximumMsgWait = self.nominalMaximumMsgWait / self.vStep # converted to number of steps.
+        # ATTENTION! DUE TO THE WAY THE SIMULATION IS IMPLEMENTED, ONE CANNOT AUGMENT TOO MUCH THE STEP SPEED!
+        # There could be information loss
 
         # Train gif image
         self.img = os.path.dirname(os.path.abspath(__file__)) + '/train.png'
@@ -226,7 +234,7 @@ class Train:
         # Election start
         if 'ID' in self.unprocessedReqs.keys():
             if not self.unprocessedReqs['inElections']:
-                if self.unprocessedReqs['delayT'] == self.delayWanted:
+                if self.unprocessedReqs['delayT'] >= self.delayWanted:
                     # Will start election
                     if self.log:
                         print( " \033[94mTrain {}:\033[0m Starting Election!".format(self.id) )
@@ -240,7 +248,7 @@ class Train:
 
         # Elections finish
             else:
-                if self.unprocessedReqs['msgWait'] == self.maximumMsgWait:
+                if self.unprocessedReqs['msgWait'] >= self.maximumMsgWait:
                     # If no answer is given, election isn't silenced and I am current leader
                     # self.broadcast_leader(self.id) # Inform others who's answering the request
 

@@ -32,7 +32,7 @@ class CliModes(Enum):
 
 
 class Client:
-    def __init__(self, ID, pos0, destiny, mapFile, network, log=False):
+    def __init__(self, ID, pos0, destiny, vStep, mapFile, network, log=False):
         """
             Class Client contains the whole operational code for a client in
             the TR.AI.NS project system
@@ -63,6 +63,9 @@ class Client:
         self.pos = tuple(pos0) # Current position of the train
         self.destiny = destiny # Current client destiny
 
+        # Timing convertion
+        self.vStep = vStep # in steps/s
+
         # Message buffer
         self.messageBuffer = []
 
@@ -77,7 +80,9 @@ class Client:
         self.leaveLogin = True
         self.reqAnswer = False
         self.answerTimer = 0
-        self.answerTimeout = 10
+        self.nominalAnswerTimeout = 10 # In seconds. Time the client should wait before sending a new request, if no
+                                       # train got the previous one
+        self.answerTimeout = self.nominalAnswerTimeout / self.vStep
 
         self.printRequest = False
         self.printCount = 0
@@ -126,11 +131,14 @@ class Client:
 
             # Case 2: Request accept
             elif currentMessage['type'] == MsgTypes.req_ans.value:
-                self.mode = CliModes.wait
-                self.train = currentMessage['sender']
-                if self.log:
-                    print("  \033[92mClient {}:\033[0m Will be picked up by train {} (waited {} simulation steps)".
-                          format(self.id, self.train, self.timeTillRequest))
+                if self.mode == CliModes.request:
+                    self.mode = CliModes.wait
+                    self.train = currentMessage['sender']
+                    if self.log:
+                        print("  \033[92mClient {}:\033[0m Will be picked up by train {} (waited {} simulation steps)".
+                              format(self.id, self.train, self.timeTillRequest))
+                else:
+                    print(f"\033[91mERROR OCCURED!!!\033[0m Client {self.id} received two train assignments")
 
             # Case 3: Train arrival
             elif currentMessage['type'] == MsgTypes.pickup.value:

@@ -248,7 +248,7 @@ if __name__ == "__main__":
     pos = stoppingPointsPos[ init ]
     dest = stoppingPointsPos[ fin ]
 
-    cl = Client(currCli, pos, dest, mapPath, net, log=True)
+    cl = Client(currCli, pos, dest, v_step, mapPath, net, log=True)
     sim.devices += [cl]
 
     clientList += [cl]
@@ -295,7 +295,7 @@ if __name__ == "__main__":
                 pos = stoppingPointsPos[init]
                 dest = stoppingPointsPos[fin]
 
-                cl = Client(currCli, pos, dest, mapPath, net, log=True)
+                cl = Client(currCli, pos, dest, v_step, mapPath, net, log=True)
                 sim.devices += [cl]
                 clientList += [cl]
 
