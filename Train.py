@@ -88,11 +88,14 @@ class Train:
         # Operational attributes    (related to the paths being and to be taken)
         self.mode = TrainModes.wait        # Current mode of operation of the train
 
-        self.currentGoal = None
-        self.client = []                # List of pickup and dropOff locations for the next clients, with the client ID
+        self.inCourseClients = []
+        self.client = {}                # List of pickup and dropOff locations for the next clients, with the client ID
                                         # [(Id1, pickup1, dropoff1), ...]
+        self.notifiedClients = False
 
         self.path = []                 # List of vertices '(x, y)' to be passed through
+        self.goals = []          # List which contains where clients board and leave train
+        self.currentGoal = None
 
         # Statistics
         self.totalDistanceRun = 0
@@ -105,7 +108,7 @@ class Train:
         self.nominalDelayWanted = randint(1,10) # In seconds. Delay to send the election message
         self.delayWanted = self.nominalDelayWanted / self.vStep # Converted to number of steps
 
-        self.nominalMaximumMsgWait = 30 # In seconds. Time a train should wait for answer from other trains before
+        self.nominalMaximumMsgWait = 40 # In seconds. Time a train should wait for answer from other trains before
                                         # declaring himself winner of the election process.
         self.maximumMsgWait = self.nominalMaximumMsgWait / self.vStep # converted to number of steps.
         # ATTENTION! DUE TO THE WAY THE SIMULATION IS IMPLEMENTED, ONE CANNOT AUGMENT TOO MUCH THE STEP SPEED!
@@ -150,20 +153,122 @@ class Train:
                         if self.log:
                             print(" \033[94mTrain {}:\033[0m Processing Client {} Request".format(self.id, clientID))
 
-                        route, d = None, None
+                        route, goals, d = None, None, None
                         # Calculate route
-                        if self.mode == TrainModes.wait:
-                            # In this case I am not moving , so I am in thory waiting at a vertice
-                            route, d = self.calculate_route( self.pos, currentMessage['pickUp'] )
-                        elif (self.mode == TrainModes.accept) or (self.mode == TrainModes.busy):
-                            route, d = self.calculate_route( self.path[-1], currentMessage['pickUp'] )
-                            route = route[1:]
 
-                        totD = d + self.full_distance()
+                        # First check if the goal is on path
+                        pickup = tuple(currentMessage['pickUp'])
+                        dropoff = tuple(currentMessage['dropOff'])
+                        foundViable = False
 
-                        self.unprocessedReqs = dict(ID=clientID, pickup=tuple(currentMessage['pickUp']),
-                                                    dropoff=tuple(currentMessage['dropOff']), delayT=0,
-                                                    inElections=False, simpleD=d, d=totD, route=route, msgWait=0)
+                        if pickup in self.path:
+                            idx = self.path.index(pickup)
+                            d_to_pu = self.full_distance(stop=idx)
+                            timeTillArrival = d_to_pu / self.vStep
+
+                            if timeTillArrival >= 1.5*self.nominalMaximumMsgWait:
+                                foundViable = True
+                                # Client is in path, will run the election considering this
+                                if dropoff in self.path[idx:]:
+                                    # Drop-off position is also in the path
+                                    d_idx = self.path[idx:].index(dropoff) + idx
+                                    d = d_to_pu + self.full_distance(start=idx,stop=d_idx)
+
+                                    # Begin elections immediately (time sensitive case)
+                                    self.unprocessedReqs = dict(ID=clientID, pickup=pickup, dropoff=dropoff,
+                                                                inElections=True, d=d, msgWait=0,
+                                                                pick_idx=idx, drop_idx=d_idx)
+                                    # NOTE: The indexes need to be updated when a vertice is taken out of the path!
+                                    self.start_election(d)
+                                    if self.log:
+                                        print( " \033[94mTrain {}:\033[0m Starting Election!".format(self.id) )
+
+                                else:
+                                    # Need to calculate the route to drop-off
+                                    route, d_drop = self.calculate_route( self.path[-1], dropoff )
+                                    route = route[1:]
+                                    goals = [None]*len(route)
+                                    goals[-1] = [clientID]
+
+                                    d = self.full_distance() + d_drop
+
+                                    # Begin elections immediately (time sensitive case)
+                                    self.unprocessedReqs = dict(ID=clientID, pickup=pickup, dropoff=dropoff,
+                                                                inElections=True, d=d, msgWait=0,
+                                                                pick_idx=idx, goalList=goals, route=route)
+                                    self.start_election(d)
+                                    if self.log:
+                                        print(" \033[94mTrain {}:\033[0m Starting Election!".format(self.id))
+
+                            else:
+                                auxPath = self.path[idx:]
+
+                                while pickup in auxPath:
+                                    idx = auxPath.index(pickup)
+                                    d_to_pu = self.full_distance(stop=idx)
+                                    timeTillArrival = d_to_pu / self.vStep
+
+                                    if timeTillArrival >= 1.5 * self.nominalMaximumMsgWait:
+                                        foundViable = True
+                                        # Client is in path, will run the election considering this
+                                        if dropoff in self.path[idx:]:
+                                            # Drop-off position is also in the path
+                                            d_idx = self.path[idx:].index(dropoff) + idx
+                                            d = d_to_pu + self.full_distance(start=idx, stop=d_idx)
+
+                                            # Begin elections immediately (time sensitive case)
+                                            self.unprocessedReqs = dict(ID=clientID, pickup=pickup, dropoff=dropoff,
+                                                                        inElections=True, d=d, msgWait=0,
+                                                                        pick_idx=idx, drop_idx=d_idx)
+                                            # NOTE: The indexes need to be updated when a vertice is taken out of the path!
+                                            self.start_election(d)
+                                            if self.log:
+                                                print(" \033[94mTrain {}:\033[0m Starting Election!".format(self.id))
+
+                                        else:
+                                            # Need to calculate the route to drop-off
+                                            route, d_drop = self.calculate_route(self.path[-1], dropoff)
+                                            route = route[1:]
+                                            goals = [None] * len(route)
+                                            goals[-1] = [clientID]
+
+                                            d = self.full_distance() + d_drop
+
+                                            # Begin elections immediately (time sensitive case)
+                                            self.unprocessedReqs = dict(ID=clientID, pickup=pickup, dropoff=dropoff,
+                                                                        inElections=True, d=d, msgWait=0,
+                                                                        pick_idx=idx, goalList=goals, route=route)
+                                            self.start_election(d)
+                                            if self.log:
+                                                print(" \033[94mTrain {}:\033[0m Starting Election!".format(self.id))
+
+                                        break
+                                    auxPath = auxPath[idx:]
+
+                        if not foundViable:
+                            # Will proceed to calculate route from end of path
+                            if self.path == []:
+                                # There is no current path route
+                                pick_route, pick_d = self.calculate_route( self.pos, pickup )
+                            else:
+                                pick_route, pick_d = self.calculate_route( self.path[-1], pickup )
+                                pick_route = pick_route[1:]
+
+                            drop_route, drop_d = self.calculate_route( pickup, dropoff )
+                            drop_route = drop_route[1:]
+
+                            route = pick_route + drop_route
+                            d = pick_d + drop_d
+
+                            # NOTE: To differentiate the pickup from the dropoff, it was decided to put the negative
+                            # of the client ID when the goal corresponds to a pickup
+                            pick_goals = [None]*(len(pick_route)-1) + [[-clientID]]
+                            drop_goals = [None]*(len(drop_route)-1) + [[clientID]]
+                            goals = pick_goals + drop_goals
+
+                            self.unprocessedReqs = dict(ID=clientID, pickup=pickup, dropoff=dropoff,
+                                                        inElections=False, delayT=0, d=d, msgWait=0,
+                                                        simpleD=pick_route, route=route, goalList=goals)
 
                         self.acknowlege_request()
                         # Create a message type to indicate to client that the request has been heard and is being processed
@@ -240,8 +345,7 @@ class Train:
                         print( " \033[94mTrain {}:\033[0m Starting Election!".format(self.id) )
 
                     self.unprocessedReqs['inElections'] = True
-                    d = self.unprocessedReqs['simpleD'] + self.full_distance() # Needs to add the distance until the
-                                        # final position in path
+                    d = self.unprocessedReqs['d']
                     self.start_election(d)
                     self.unprocessedReqs['msgWait'] = 0
         # ------------------------------------------
@@ -255,62 +359,78 @@ class Train:
                     if self.log:
                         print( " \033[94mTrain {}:\033[0m Finishing election! I've won!".format(self.id) )
 
-                    self.path += self.unprocessedReqs['route'] # Adds route to desired path
-                    if self.unprocessedReqs['simpleD'] == 0 and self.mode == TrainModes.wait:
-                        self.okToMove = False
-                        self.waitForClientDelay = 0
+                    if 'route' in self.unprocessedReqs.keys():
+                        self.path += self.unprocessedReqs['route'] # Adds route to desired path
+                        self.goals += self.unprocessedReqs['goalList']
 
-                    route, d = self.calculate_route(self.unprocessedReqs['pickup'], self.unprocessedReqs['dropoff'])
+                    if 'pick_idx' in self.unprocessedReqs.keys():
+                        if not self.goals[ self.unprocessedReqs['pick_idx'] ]:
+                            self.goals[ self.unprocessedReqs['pick_idx'] ] = [-self.unprocessedReqs['ID']]
+                        else:
+                            self.goals[ self.unprocessedReqs['pick_idx'] ] += [-self.unprocessedReqs['ID']]
 
-                    self.path += route[1:]
+                        if 'drop_idx' in self.unprocessedReqs.keys():
+                            if not self.goals[self.unprocessedReqs['drop_idx']]:
+                                self.goals[ self.unprocessedReqs['drop_idx'] ] = [self.unprocessedReqs['ID']]
+                            else:
+                                self.goals[self.unprocessedReqs['drop_idx']] += [self.unprocessedReqs['ID']]
+
+                    elif 'simpleD' in self.unprocessedReqs.keys():
+                        if self.unprocessedReqs['simpleD'] == 0 and self.mode == TrainModes.wait:
+                            self.okToMove = False
+                            self.waitForClientDelay = 0
 
                     # In this case I'd need to convert into coordinates
-                    self.client += [(self.unprocessedReqs['ID'], self.unprocessedReqs['pickup'], self.unprocessedReqs['dropoff'])]
+                    self.client[self.unprocessedReqs['ID']] = [(self.unprocessedReqs['pickup'], self.unprocessedReqs['dropoff'])]
                     self.client_accept()
                     self.unprocessedReqs = {} # Finishes current election process
 
                     if self.mode == TrainModes.wait:
                         self.mode = TrainModes.accept
-                        self.currentGoal = self.client[0][1] # pickup
         # ------------------------------------------
 
         # Moving train and handling new position
-        if (self.mode == TrainModes.busy) and (not self.okToMove):
-            if self.log:
-                print(" \033[94mTrain {}:\033[0m Waiting for client to board ({})".
-                      format(self.id, self.client[0][0]))
+        if self.currentGoal and (not self.okToMove):
+            for client in self.currentGoal:
+                action = "board" if (client < 0) else "disembark"
+                clientID =abs(client)
+
+                if self.log:
+                    print(" \033[94mTrain {}:\033[0m Waiting for client to {} ({})".
+                        format(self.id, action, clientID))
+
             if self.waitForClientDelay >= self.clientWaitingTime:
                 self.okToMove = True
-        if (self.mode in [TrainModes.wait, TrainModes.accept]) and (not self.okToMove):
-            if self.log:
-                print(" \033[94mTrain {}:\033[0m Waiting for client to disembark".
-                      format(self.id))
-            if self.waitForClientDelay >= self.clientWaitingTime:
-                self.okToMove = True
+                self.currentGoal = None
+                self.notifiedClients = False
 
         self.move()
 
-        if self.pos == self.currentGoal:  # Reached current destination
-            if self.mode == TrainModes.accept:
-                self.notify_client()
+        # TODO
+        if self.currentGoal and (not self.notifiedClients):
+            # Reached pick-up or drop-off destination
+            # Proceding to notify clients
 
-                # Client boarding train
-                self.mode = TrainModes.busy
-                self.currentGoal = self.client[0][2] # dropoff
+            for client in self.currentGoal:
+                self.notify_client(client)
 
-            elif self.mode == TrainModes.busy:
-                # Client leaving the train
-                self.notify_client()
+                if client < 0:
+                    # Boarding train
+                    self.inCourseClients.append(abs(client))
+                    if self.mode == TrainModes.accept:
+                        self.mode = TrainModes.busy
 
-                self.client.pop(0) # taking out client from list
-                if len(self.client) > 0:
-                    self.mode = TrainModes.accept
-                    self.currentGoal = self.client[0][1] # pickUp
-                    # self.waitForClientDelay = 0
-                    # self.okToMove = False
-                else:
-                    self.currentGoal = None
-                    self.mode = TrainModes.wait
+                elif client > 0:
+                    # Leaving train
+                    self.inCourseClients.remove(abs(client))
+                    del self.client[abs(client)]
+                    if self.mode == TrainModes.busy and (not self.inCourseClients):
+                        if len(self.client) > 0:
+                            self.mode = TrainModes.accept
+                        else:
+                            self.mode = TrainModes.wait
+
+            self.notifiedClients = True
     # -----------------------------------------------------------------------------------------
 
     def receive_message(self, msgStr):
@@ -496,17 +616,24 @@ class Train:
         return path, distances_length
     # -----------------------------------------------------------------------------------------
 
-    def full_distance(self):
+    def full_distance(self, start=0, stop=None):
         """
-            Calculates the full distance to be traveled in path schedule
+            Calculates the full distance to be traveled in path schedule.
+            Can optionally have a start or stop node
+        :param start: First position in the path one wants to start the
+          calculation with. Must be an index!
+        :param stop: Last position in the path one wants the calculation to
+          end in (including itself). Must be an index!
         """
         totSum = 0
 
         if self.path != []:
-            if self.currentEdge:
+            if self.currentEdge and start==0:
                 totSum += distance.euclidean(self.pos, self.path[0])
 
-            for index in range(len(self.path)-1):
+            startIdx = start
+            stopIdx = len(self.path)-1 if not stop else stop
+            for index in range(startIdx, stopIdx):
                 totSum += distance.euclidean(self.path[index],self.path[index+1])
                 continue
         return totSum
@@ -555,22 +682,22 @@ class Train:
         self.network.broadcast(msg_sent_client.encode(), self)
     # -----------------------------------------------------------------------------------------
 
-    def notify_client(self):
+    def notify_client(self, client):
         """
             Notifies client of train arrival at the pick up or drop off location
         """
         mType = None
-        if self.mode == TrainModes.accept:
+        if client < 0:
             mType = MsgTypes.pickup
             if self.log:
                 print(" \033[94mTrain {}:\033[0m Reached client. Sending message to notify him".format(self.id))
 
-        elif self.mode == TrainModes.busy:
+        elif client > 0:
             mType = MsgTypes.dropoff
             if self.log:
                 print(" \033[94mTrain {}:\033[0m Reached destination. Sending message to notify client".format(self.id))
 
-        msg = Message(msgType=mType, sender=self.id, receiver=self.client[0][0])
+        msg = Message(msgType=mType, sender=self.id, receiver=abs(client))
         self.network.broadcast(msg.encode(), self)
     # -----------------------------------------------------------------------------------------
 
@@ -606,7 +733,8 @@ class Train:
 
             if len(self.path) >= 2:
                 if self.path[0] == self.path[1]:
-                    print(f"\033[91mERROR OCCURED!!!\033[0m Path has consecutive vertices with same value ({self.path[:2]})")
+                    print("\033[91mERROR OCCURED!!!\033[0m Path has consecutive vertices with same value ({})".
+                          format(self.path[:2]))
 
             # Fist: move train according to current speed
             pos0 = self.pos[0] + self.v[0] * self.vStep
@@ -629,11 +757,20 @@ class Train:
 
                 # Go to next speed step
                 self.path = self.path[1:]
+                self.currentGoal = self.goals.pop(0)
                 self.v = [0, 0]
 
-                if self.pos == self.currentGoal:
+                if 'ID' in self.unprocessedReqs.keys():
+                    # Possibly need to update indexes!
+                    if 'pick_idx' in self.unprocessedReqs.keys():
+                        self.unprocessedReqs['pick_idx'] -= 1
+                        if 'drop_idx' in self.unprocessedReqs.keys():
+                            self.unprocessedReqs['drop_idx'] -= 1
+
+                # TODO: pick or drop client
+                if self.currentGoal:
                     # Will pick up or drop off a client
-                    if self.okToMove:
+                    if self.okToMove: # NOTE: Is this case needed? Should only reach here once, if okToMove
                         if self.log:
                             print(" \033[94mTrain {}:\033[0m Reached goal {}".format(self.id, self.pos))
 
@@ -703,16 +840,19 @@ class Train:
                 "{}".format(self.id))
 
         if self.mode == TrainModes.busy:
-            dirClient = [-1, 1]
-            if magnitude != 0:
-                dirClient = [ dirClient[0]*cosseno - dirClient[1]*seno,
-                              dirClient[0]*seno + dirClient[1]*cosseno  ]
-            ax.text(self.pos[0] + .7 * scale * dirClient[0],
-                    self.pos[1] + .6 * scale * dirClient[1],
-                    "{}".format(int(self.client[0][0] - .5)),
-                    fontsize=8,
-                    verticalalignment='bottom', horizontalalignment='center',
-                    color='blue')
+            deviation = 0
+            for client in self.inCourseClients:
+                dirClient = [-1, 1 - deviation]
+                if magnitude != 0:
+                    dirClient = [ dirClient[0]*cosseno - dirClient[1]*seno,
+                                  dirClient[0]*seno + dirClient[1]*cosseno  ]
+                ax.text(self.pos[0] + .7 * scale * dirClient[0],
+                        self.pos[1] + .6 * scale * dirClient[1],
+                        "{}".format(int(client - .5)),
+                        fontsize=8,
+                        verticalalignment='bottom', horizontalalignment='center',
+                        color='blue')
+                deviation += .2
 
         x1, x2, y1, y2 = im.get_extent()
         ax.plot(x1, y1, transform=trans_data, zorder=10)

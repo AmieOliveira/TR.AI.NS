@@ -269,6 +269,7 @@ if __name__ == "__main__":
     fig.suptitle( "TR.AI.NS Simulation", fontweight='bold', fontsize=17 )
 
     ax = fig.add_subplot(1, 1, 1)
+    ax.axis('equal')
     plt.show(block=False)
 
     bax = plt.axes([0.05, 0.01, 0.1, 0.075])
@@ -377,8 +378,9 @@ if __name__ == "__main__":
                 out_file.write( "\t  Processing request {}\n".format(device.unprocessedReqs) )
                 out_file.write( "\t  Path {}\n".format(device.path) )
                 out_file.write( "\t  Clients list {}\n".format(device.client) )
+                out_file.write( "\t  Clients en route {}\n".format(device.inCourseClients) )
             elif isinstance(device, Client):
-                out_file.write( "\t  Destination: {}.".format(device.destiny) )
+                out_file.write( "\t  Destination: {}.\n".format(device.destiny) )
                 out_file.write( "\t  Train that will pick me up {}\n".format(device.train) )
         out_file.write("\n")
 
