@@ -240,8 +240,7 @@ class Train:
                         print( " \033[94mTrain {}:\033[0m Starting Election!".format(self.id) )
 
                     self.unprocessedReqs['inElections'] = True
-                    d = self.unprocessedReqs['simpleD'] + self.full_distance() # Needs to add the distance until the
-                                        # final position in path
+                    d = self.unprocessedReqs['d']
                     self.start_election(d)
                     self.unprocessedReqs['msgWait'] = 0
         # ------------------------------------------
