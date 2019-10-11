@@ -147,17 +147,21 @@ class Client:
 
             # Case 3: Train arrival
             elif currentMessage['type'] == MsgTypes.pickup.value:
-                self.mode = CliModes.moving
-                if self.log:
-                    print("  \033[92mClient {}:\033[0m Boarding train. (waited {} simulation steps since request)".
-                          format(self.id, self.waitingTime))
+                if currentMessage['sender'] == self.train:
+                    self.mode = CliModes.moving
+                    self.check_for_train()
+                    if self.log:
+                        print("  \033[92mClient {}:\033[0m Boarding train. (waited {} simulation steps since request)".
+                              format(self.id, self.waitingTime))
 
             # Case 4: Destination arrival
             elif currentMessage['type'] == MsgTypes.dropoff.value:
-                self.mode = CliModes.dropoff
-                self.pos = (self.destiny[0], self.destiny[1])
-                if self.log:
-                    print("  \033[92mClient {}:\033[0m Getting off train".format(self.id))
+                if currentMessage['sender'] == self.train:
+                    self.mode = CliModes.dropoff
+                    self.check_for_train(True)
+                    self.pos = (self.destiny[0], self.destiny[1])
+                    if self.log:
+                        print("  \033[92mClient {}:\033[0m Getting off train".format(self.id))
         # -----------------------------------
 
         # Updating client mode of operation
@@ -218,11 +222,31 @@ class Client:
         """
             This method updates the position of the client.
             To do so, it artificially copies the train current position, but we assume that in the
-          system real implementation it would use a GPS instead.
+            system real implementation it would use a GPS instead.
         """
         for obj in self.network.sim.devices:
             if obj.id == self.train:
                 self.pos = obj.pos
+    # ---------------------------------------------------
+
+    def check_for_train(self, dropoff=False):
+        """
+            This method performs a check to make sure a train arrived where it's supposed to when
+            a client receives a message from it. (In the real implementation, the client would
+            immediately notice the abcense and report a problem)
+        :param dropoff: Flag to make funtion check for correct arrival station instead of checking
+          for the train in its pickup station
+        """
+        target = self.pos
+        if dropoff:
+            target = self.destiny
+        for obj in self.network.sim.devices:
+            if obj.id == self.train:
+                if not (obj.pos == target):
+                    raise Exception(
+                        "Received train message, but there is no train (or arrived out of station) (Client {}, Train {})".
+                                    format(self.id, self.train))
+    # ---------------------------------------------------
 
     def draw(self, ax):
         """

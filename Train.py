@@ -159,15 +159,15 @@ class Train:
                         # First check if the goal is on path
                         pickup = tuple(currentMessage['pickUp'])
                         dropoff = tuple(currentMessage['dropOff'])
-                        foundViable = False
+                        found_viable = False
 
                         if pickup in self.path:
                             idx = self.path.index(pickup)
                             d_to_pu = self.full_distance(stop=idx)
-                            timeTillArrival = d_to_pu / self.vStep
+                            timeTillArrival = d_to_pu / self.vMax
 
                             if timeTillArrival >= 1.5*self.nominalMaximumMsgWait:
-                                foundViable = True
+                                found_viable = True
                                 # Client is in path, will run the election considering this
                                 if dropoff in self.path[idx:]:
                                     # Drop-off position is also in the path
@@ -201,15 +201,15 @@ class Train:
                                         print(" \033[94mTrain {}:\033[0m Starting Election!".format(self.id))
 
                             else:
-                                auxPath = self.path[idx:]
+                                auxPath = self.path[idx+1:]
 
                                 while pickup in auxPath:
                                     idx = auxPath.index(pickup)
                                     d_to_pu = self.full_distance(stop=idx)
-                                    timeTillArrival = d_to_pu / self.vStep
+                                    timeTillArrival = d_to_pu / self.vMax
 
                                     if timeTillArrival >= 1.5 * self.nominalMaximumMsgWait:
-                                        foundViable = True
+                                        found_viable = True
                                         # Client is in path, will run the election considering this
                                         if dropoff in self.path[idx:]:
                                             # Drop-off position is also in the path
@@ -243,9 +243,9 @@ class Train:
                                                 print(" \033[94mTrain {}:\033[0m Starting Election!".format(self.id))
 
                                         break
-                                    auxPath = auxPath[idx:]
+                                    auxPath = auxPath[idx+1:]
 
-                        if not foundViable:
+                        if not found_viable:
                             # Will proceed to calculate route from end of path
                             if self.path == []:
                                 # There is no current path route
@@ -268,7 +268,7 @@ class Train:
 
                             self.unprocessedReqs = dict(ID=clientID, pickup=pickup, dropoff=dropoff,
                                                         inElections=False, delayT=0, d=d, msgWait=0,
-                                                        simpleD=pick_route, route=route, goalList=goals)
+                                                        simpleD=pick_d, route=route, goalList=goals)
 
                         self.acknowlege_request()
                         # Create a message type to indicate to client that the request has been heard and is being processed
@@ -360,6 +360,26 @@ class Train:
                         print( " \033[94mTrain {}:\033[0m Finishing election! I've won!".format(self.id) )
 
                     if 'route' in self.unprocessedReqs.keys():
+                        if 'simpleD' in self.unprocessedReqs.keys():
+                            if self.unprocessedReqs['simpleD'] == 0:
+                                # Correct extra goal value
+                                if not self.unprocessedReqs['goalList'][0]:
+                                    raise Exception("Call me crazy, some shit happened")
+                                pickupGoal = self.unprocessedReqs['goalList'].pop(0)
+                                if self.path == []:
+                                    self.okToMove = False
+                                    self.waitForClientDelay = 0
+                                    if self.currentGoal and not self.notifiedClients:
+                                        self.currentGoal += pickupGoal
+                                    else:
+                                        self.notifiedClients = False
+                                        self.currentGoal = pickupGoal
+                                else:
+                                    if self.goals[-1]:
+                                        self.goals[-1] += pickupGoal
+                                    else:
+                                        self.goals[-1] = pickupGoal
+
                         self.path += self.unprocessedReqs['route'] # Adds route to desired path
                         self.goals += self.unprocessedReqs['goalList']
 
@@ -370,15 +390,10 @@ class Train:
                             self.goals[ self.unprocessedReqs['pick_idx'] ] += [-self.unprocessedReqs['ID']]
 
                         if 'drop_idx' in self.unprocessedReqs.keys():
-                            if not self.goals[self.unprocessedReqs['drop_idx']]:
+                            if not self.goals[ self.unprocessedReqs['drop_idx'] ]:
                                 self.goals[ self.unprocessedReqs['drop_idx'] ] = [self.unprocessedReqs['ID']]
                             else:
-                                self.goals[self.unprocessedReqs['drop_idx']] += [self.unprocessedReqs['ID']]
-
-                    elif 'simpleD' in self.unprocessedReqs.keys():
-                        if self.unprocessedReqs['simpleD'] == 0 and self.mode == TrainModes.wait:
-                            self.okToMove = False
-                            self.waitForClientDelay = 0
+                                self.goals[ self.unprocessedReqs['drop_idx'] ] += [self.unprocessedReqs['ID']]
 
                     # In this case I'd need to convert into coordinates
                     self.client[self.unprocessedReqs['ID']] = [(self.unprocessedReqs['pickup'], self.unprocessedReqs['dropoff'])]
@@ -406,7 +421,6 @@ class Train:
 
         self.move()
 
-        # TODO
         if self.currentGoal and (not self.notifiedClients):
             # Reached pick-up or drop-off destination
             # Proceding to notify clients
@@ -616,7 +630,7 @@ class Train:
         return path, distances_length
     # -----------------------------------------------------------------------------------------
 
-    def full_distance(self, start=0, stop=None):
+    def full_distance(self, start=0, stop=-1):
         """
             Calculates the full distance to be traveled in path schedule.
             Can optionally have a start or stop node
@@ -627,12 +641,12 @@ class Train:
         """
         totSum = 0
 
-        if self.path != []:
+        if not self.path:
             if self.currentEdge and start==0:
                 totSum += distance.euclidean(self.pos, self.path[0])
 
             startIdx = start
-            stopIdx = len(self.path)-1 if not stop else stop
+            stopIdx = len(self.path)-1 if (stop == -1) else stop
             for index in range(startIdx, stopIdx):
                 totSum += distance.euclidean(self.path[index],self.path[index+1])
                 continue
@@ -770,12 +784,11 @@ class Train:
                 # TODO: pick or drop client
                 if self.currentGoal:
                     # Will pick up or drop off a client
-                    if self.okToMove: # NOTE: Is this case needed? Should only reach here once, if okToMove
-                        if self.log:
-                            print(" \033[94mTrain {}:\033[0m Reached goal {}".format(self.id, self.pos))
+                    if self.log:
+                        print(" \033[94mTrain {}:\033[0m Reached goal {}".format(self.id, self.pos))
 
-                        self.okToMove = False
-                        self.waitForClientDelay = 0
+                    self.okToMove = False
+                    self.waitForClientDelay = 0
                     return
 
                 if not self.path:
