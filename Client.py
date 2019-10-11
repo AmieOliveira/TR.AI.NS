@@ -93,6 +93,7 @@ class Client:
         # Waiting time statistics
         self.timeTillRequest = -1       # Time until client receives a train acceptance
         self.waitingTime = -1           # Time until client is picked up by train
+        self.serviceTime = -1           # Time until client is delivered at destination
 
         if self.log:
             print("  \033[92mClient {}:\033[0m Created client in {}, with destination {}".format(self.id, self.pos, self.destiny))
@@ -107,10 +108,14 @@ class Client:
         # Updating timers
         if self.mode == CliModes.request:
             self.answerTimer += 1
-            self.timeTillRequest +=1
+            self.timeTillRequest += 1
             self.waitingTime += 1
+            self.serviceTime += 1
         elif self.mode == CliModes.wait:
             self.waitingTime += 1
+            self.serviceTime += 1
+        elif self.mode == CliModes.moving:
+            self.serviceTime += 1
 
         # Receiving and interpreting messages
         currentMessage = None
