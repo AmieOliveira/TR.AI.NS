@@ -630,7 +630,7 @@ class Train:
         return path, distances_length
     # -----------------------------------------------------------------------------------------
 
-    def full_distance(self, start=0, stop=-1):
+    def full_distance(self, start=0, stop=None):
         """
             Calculates the full distance to be traveled in path schedule.
             Can optionally have a start or stop node
@@ -641,12 +641,12 @@ class Train:
         """
         totSum = 0
 
-        if not self.path:
+        if self.path:
             if self.currentEdge and start==0:
                 totSum += distance.euclidean(self.pos, self.path[0])
 
             startIdx = start
-            stopIdx = len(self.path)-1 if (stop == -1) else stop
+            stopIdx = len(self.path)-1 if (stop == None) else stop
             for index in range(startIdx, stopIdx):
                 totSum += distance.euclidean(self.path[index],self.path[index+1])
                 continue
@@ -853,19 +853,24 @@ class Train:
                 "{}".format(self.id))
 
         if self.mode == TrainModes.busy:
-            deviation = 0
+            first = True
+            clients_text = ""
             for client in self.inCourseClients:
-                dirClient = [-1, 1 - deviation]
-                if magnitude != 0:
-                    dirClient = [ dirClient[0]*cosseno - dirClient[1]*seno,
-                                  dirClient[0]*seno + dirClient[1]*cosseno  ]
-                ax.text(self.pos[0] + .7 * scale * dirClient[0],
-                        self.pos[1] + .6 * scale * dirClient[1],
-                        "{}".format(int(client - .5)),
-                        fontsize=8,
-                        verticalalignment='bottom', horizontalalignment='center',
-                        color='blue')
-                deviation += .2
+                if first:
+                    clients_text = "{}".format(int(client - .5))
+                    first = False
+                else:
+                    clients_text += ",{}".format(int(client - .5))
+            dirClient = [-1, 1]
+            if magnitude != 0:
+                dirClient = [dirClient[0] * cosseno - dirClient[1] * seno,
+                             dirClient[0] * seno + dirClient[1] * cosseno]
+            ax.text(self.pos[0] + .7 * scale * dirClient[0],
+                    self.pos[1] + .6 * scale * dirClient[1],
+                    clients_text,
+                    fontsize=8,
+                    verticalalignment='bottom', horizontalalignment='center',
+                    color='blue')
 
         x1, x2, y1, y2 = im.get_extent()
         ax.plot(x1, y1, transform=trans_data, zorder=10)
