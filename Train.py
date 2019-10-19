@@ -105,7 +105,7 @@ class Train:
         self.nominalDelayWanted = randint(1,10) # In seconds. Delay to send the election message
         self.delayWanted = self.nominalDelayWanted / self.vStep # Converted to number of steps
 
-        self.nominalMaximumMsgWait = 30 # In seconds. Time a train should wait for answer from other trains before
+        self.nominalMaximumMsgWait = 45 # In seconds. Time a train should wait for answer from other trains before
                                         # declaring himself winner of the election process.
         self.maximumMsgWait = self.nominalMaximumMsgWait / self.vStep # converted to number of steps.
         # ATTENTION! DUE TO THE WAY THE SIMULATION IS IMPLEMENTED, ONE CANNOT AUGMENT TOO MUCH THE STEP SPEED!

@@ -144,6 +144,7 @@ class Client:
                               format(self.id, self.train, self.timeTillRequest))
                 else:
                     print(f"\033[91mERROR OCCURED!!!\033[0m Client {self.id} received two train assignments")
+                    raise Exception("Client received two train assignments")
 
             # Case 3: Train arrival
             elif currentMessage['type'] == MsgTypes.pickup.value:
