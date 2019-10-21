@@ -108,7 +108,7 @@ class Train:
         self.nominalDelayWanted = randint(1,10) # In seconds. Delay to send the election message
         self.delayWanted = self.nominalDelayWanted / self.vStep # Converted to number of steps
 
-        self.nominalMaximumMsgWait = 40 # In seconds. Time a train should wait for answer from other trains before
+        self.nominalMaximumMsgWait = 45 # In seconds. Time a train should wait for answer from other trains before
                                         # declaring himself winner of the election process.
         self.maximumMsgWait = self.nominalMaximumMsgWait / self.vStep # converted to number of steps.
         # ATTENTION! DUE TO THE WAY THE SIMULATION IS IMPLEMENTED, ONE CANNOT AUGMENT TOO MUCH THE STEP SPEED!
@@ -204,7 +204,7 @@ class Train:
                                 auxPath = self.path[idx+1:]
 
                                 while pickup in auxPath:
-                                    idx = auxPath.index(pickup)
+                                    idx = idx+1 + auxPath.index(pickup)
                                     d_to_pu = self.full_distance(stop=idx)
                                     timeTillArrival = d_to_pu / self.vMax
 
