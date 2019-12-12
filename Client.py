@@ -108,7 +108,7 @@ class Client:
         # Updating timers
         if self.mode == CliModes.request:
             self.answerTimer += 1
-            self.timeTillRequest +=1
+            self.timeTillRequest += 1
             self.waitingTime += 1
             self.serviceTime += 1
         elif self.mode == CliModes.wait:
