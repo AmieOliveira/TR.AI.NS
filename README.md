@@ -1,10 +1,11 @@
-# TR.AI.NS System Simulation
+# V.A. - Automatic Transport System
 
-This code corresponds to the simulation of the Automated Transportation 
-System TR.AI.NS. Code should be run through the "Simulation" script. 
-There are some necessary arguments, as will be shown below.
+This code corresponds to the simulation of the Automated and Distributed 
+Transportation System called the VA Project. 
 
-The basic command to run this simulation is given as:
+Code should be run through the "Simulation" script. There are some necessary 
+arguments, as will be shown below. The basic command to run this simulation 
+is given as:
 
 ```bash
     ./Simulation.py -m MAP_FILE [-nT NUMBER_OF_TRAINS]
@@ -39,12 +40,24 @@ of steps. Otherwise the simulation will finish after 10 clients are delivered.
 Default is set to 1 s/step
 
 
+## Versions
+
+If you are running the code pay attention to the version you are using. Different
+versions implement different features. 
+
+If you use the latest v3 versions, you will be implementing the system in full 
+dedicated mode, where one vehicle services only one client at a time. On v4 versions,
+on the other hand, multiple clients can be picked up, as long as it does not add 
+route deviations.
+
+Enjoy!
+
+
 [comment]: <> (TODO: Add the map format specifications!
     This simulation can be run with any map, as long as the pertinent 
     information is given in the correct format. This folder contains 
     a file called ")
-
-[comment]: <> (Should I add the train Petri Net?)
+    
 
 #### Credits
-The icons for the train and the user were obtained from the website 'www.flaticon.com' (accessed on 22th June 2019)
+The icons for the vehicles and users were obtained from the website 'www.flaticon.com' (accessed on 22th June 2019)
