@@ -22,7 +22,7 @@ import time
 plt.switch_backend('TkAgg')     # Important to make the annimation work!
 rcParams['figure.figsize'] = [8, 5.6]
 
-parser = argparse.ArgumentParser(description='Simulation of TR.AI.NS project')
+parser = argparse.ArgumentParser(description='Simulation of V.A. project')
 
 required = parser.add_argument_group('Required Arguments')
 required.add_argument( '-m', '--map-file', type=str, required=True,
@@ -112,6 +112,7 @@ class Index(object):
         outText += "Total distance run by all trains: {} m".format(sumDistance)
 
         figW = plt.figure(10, figsize=(5, 2))
+        figW.clf()
         figW.text(.1, .5, outText)
 
 
@@ -266,7 +267,7 @@ if __name__ == "__main__":
     out_file = open("log.txt", "w")
 
     fig = plt.figure(figsize=(10, 10))
-    fig.suptitle( "TR.AI.NS Simulation", fontweight='bold', fontsize=17 )
+    fig.suptitle( "V.A. Simulation", fontweight='bold', fontsize=17 )
 
     ax = fig.add_subplot(1, 1, 1)
     ax.axis('equal')
