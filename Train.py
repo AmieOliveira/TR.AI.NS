@@ -108,6 +108,7 @@ class Train:
         self.nominalMaximumMsgWait = 45 # In seconds. Time a train should wait for answer from other trains before
                                         # declaring himself winner of the election process.
         self.maximumMsgWait = self.nominalMaximumMsgWait / self.vStep # converted to number of steps.
+        # TODO: Add timeout update method
         # ATTENTION! DUE TO THE WAY THE SIMULATION IS IMPLEMENTED, ONE CANNOT AUGMENT TOO MUCH THE STEP SPEED!
         # There could be information loss
 
